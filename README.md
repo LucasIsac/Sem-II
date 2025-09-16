@@ -82,3 +82,18 @@ Para poner en marcha el proyecto, sigue estos pasos:
 -   **Pillow**: Para la manipulación de imágenes.
 -   **python-docx**: Para crear archivos de Word.
 -   **PyPDF2**: Para leer archivos PDF.
+
+## Nivel de Actualidad de las Tecnologías
+
+El proyecto combina tecnologías de vanguardia con herramientas modernas y establecidas para lograr un resultado robusto y funcional.
+
+-   **Tecnologías de Vanguardia (Lo más nuevo):**
+    -   **Google Gemini / Gemma:** Modelo de lenguaje de última generación (lanzado entre finales de 2023 y principios de 2024).
+    -   **LangChain:** Framework líder para el desarrollo con LLMs, en constante y rápida evolución.
+
+-   **Tecnologías Modernas:**
+    -   **Streamlit:** Un framework relativamente reciente y muy popular para crear aplicaciones web interactivas en el ecosistema de Python y la IA.
+
+-   **Tecnologías Establecidas y Maduras:**
+    -   **Python:** Lenguaje de programación con décadas de existencia, pero más relevante que nunca gracias a su dominio en el campo de la IA.
+    -   **Pillow, PyPDF2, python-docx:** Librerías estándar y muy confiables para la manipulación de archivos, mantenidas activamente durante años.
