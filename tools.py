@@ -19,7 +19,6 @@ from pdf2docx import Converter
 load_dotenv()
 CLOUDCONVERT_API_KEY = os.getenv("CLOUDCONVERT_API_KEY")
 
-
 def rename_file(current_name, new_name):
     """Renombra un archivo"""
     current_path = os.path.join('files', current_name)
@@ -45,7 +44,6 @@ def rename_folder(current_name, new_name):
         return {"success": True, "message": f"Carpeta renombrada de '{current_name}' a '{new_name}'"}
     except Exception as e:
         return {"success": False, "message": f"Error al renombrar carpeta: {str(e)}"}
-
 
 def convert_pdf_to_word_cloudconvert(pdf_path, docx_path=None):
     """
@@ -127,13 +125,11 @@ def search_files(pattern, directory="files"):
                 results.append(os.path.join(root, file))
     return results
 
-
 def get_datetime():
     """Obtiene la fecha y hora actual"""
     now = datetime.now()
     formatted_date = now.strftime("%A, %d de %B de %Y - %H:%M")
     return {"success": True, "message": f"Son las {formatted_date}"}
-
 
 def convert_pdf_to_word_local(pdf_path, docx_path=None):
     """

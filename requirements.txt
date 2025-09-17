@@ -10,9 +10,6 @@ python-dotenv
 langchain-google-genai
 requests>=2.31.0
 SpeechRecognition>=3.10.1
-langchain-openai
-pdf2docx
-langchain-openai
 pdf2docx
 elevenlabs
 playsound==1.2.2
