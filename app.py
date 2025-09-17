@@ -3,11 +3,10 @@ import streamlit as st
 import os
 import openai
 import speech_recognition as sr
+from agent import process_command
+from tools import convert_pdf_to_word_cloudconvert, rename_file, rename_folder, convert_image_format, list_files, search_files
 from dotenv import load_dotenv
 
-from agent import process_command
-from tools import list_files
-from tts import TTS
 from voice_handler import speak_response
 
 # ----------------- CARGA DE VARIABLES -----------------
