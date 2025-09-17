@@ -14,4 +14,5 @@ langchain-openai
 pdf2docx
 langchain-openai
 pdf2docx
-
+elevenlabs
+playsound==1.2.2

@@ -5,7 +5,6 @@ from docx import Document
 import PyPDF2
 from PIL import Image
 import glob
-
 from datetime import datetime
 from elevenlabs import ElevenLabs
 from playsound import playsound
