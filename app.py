@@ -1,7 +1,6 @@
 # app.py - FileMate AI (versión final y funcional)
 import streamlit as st
 import os
-import openai
 import speech_recognition as sr
 from agent import process_command
 from tools import convert_pdf_to_word_cloudconvert, rename_file, rename_folder, convert_image_format, list_files, search_files
@@ -11,7 +10,6 @@ from voice_handler import speak_response
 
 # ----------------- CARGA DE VARIABLES -----------------
 load_dotenv()
-openai.api_key = os.getenv('OPENAI_API_KEY')
 WORKING_DIR = os.getenv('WORKING_DIRECTORY', 'files')
 os.makedirs(WORKING_DIR, exist_ok=True)
 os.makedirs("static", exist_ok=True) # Asegurarse de que la carpeta 'static' existe
@@ -45,7 +43,7 @@ with st.sidebar:
         modo_voz = st.radio(
             "Modo de respuesta:",
             ["Solo texto", "Voz y texto"],
-            index=1,
+            index=0,
             help="El asistente hablará con naturalidad incorporada."
         )
 

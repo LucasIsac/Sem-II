@@ -79,6 +79,7 @@ Para poner en marcha el proyecto, sigue estos pasos:
 -   **Streamlit**: Para crear la interfaz de usuario web.
 -   **LangChain**: Framework para construir aplicaciones con modelos de lenguaje.
 -   **Google Gemini**: Modelo de lenguaje para la IA.
+-   **ElevenLabs**: Para la síntesis de voz (Text-to-Speech).
 -   **Pillow**: Para la manipulación de imágenes.
 -   **python-docx**: Para crear archivos de Word.
 -   **PyPDF2**: Para leer archivos PDF.

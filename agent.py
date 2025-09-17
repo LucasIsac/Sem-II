@@ -3,7 +3,7 @@
 import os
 from langchain.agents import Tool, initialize_agent, AgentType
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import SystemMessagePromptTemplate, ChatPromptTemplate, MessagesPlaceholder
+from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder
 from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local
 from dotenv import load_dotenv
 from langchain.memory import ConversationBufferMemory
@@ -17,8 +17,6 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY or GEMINI_API_KEY == "tu_api_key_de_google_gemini_aqui":
     raise ValueError("Por favor configura tu API key de Gemini en el archivo .env")
-
-
 
 # Definir las herramientas disponibles
 # Las descripciones son muy importantes para que el LLM sepa cómo usar la herramienta.
@@ -69,18 +67,6 @@ def initialize_llm():
         max_output_tokens=256
     )
 
-system_message = (
-    "Eres FileMate AI, un asistente de archivos. "
-    "Tu objetivo es asistir al usuario con tareas de manipulación de archivos. "
-    "Responde de manera natural y concisa en español. "
-)
-
-prompt = ChatPromptTemplate.from_messages([
-    SystemMessagePromptTemplate.from_template(system_message),
-    MessagesPlaceholder(variable_name="chat_history"),
-    ("human", "{input}"),
-])
-
 def process_command(command: str, chat_history: list = None, modo_voz: str = "Voz y texto"):
     """
     Procesa un comando de lenguaje natural utilizando un agente de IA para seleccionar
@@ -97,6 +83,21 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
                 else:
                     memory.chat_memory.add_ai_message(message['content'])
 
+        # Contexto inicial del sistema
+        system_prompt = """Sos FileMate AI, un asistente especializado en gestión de archivos.
+        Tu objetivo es asistir al usuario con tareas de manipulación de archivos.
+        Podés ayudar al usuario a realizar las siguientes acciones:
+        - 📂 Renombrar archivos
+        - 📂 Renombrar carpetas
+        - 📄 Convertir PDF a Word (usando CloudConvert o localmente)
+        - 🖼️ Convertir imágenes entre formatos
+        - 🔎 Buscar archivos
+        - 📅 Obtener la fecha y hora actual
+
+        Siempre respondé de manera clara y amigable en español.
+        Si te preguntan qué podés hacer, describí estas funciones.
+        No digas que sos un modelo de Google ni una IA genérica. Tu nombre es FileMate AI."""
+
         agent_executor = initialize_agent(
             tools,
             llm,
@@ -104,7 +105,9 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
             verbose=True,
             memory=memory,
             handle_parsing_errors=True,
-            prompt=prompt
+            agent_kwargs={
+                "system_message": system_prompt
+            }
         )
 
         result = agent_executor.invoke({"input": command})
