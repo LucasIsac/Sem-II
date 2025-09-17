@@ -5,6 +5,14 @@ from docx import Document
 import PyPDF2
 from PIL import Image
 import glob
+from datetime import datetime
+from elevenlabs import ElevenLabs
+from playsound import playsound
+import os
+from dotenv import load_dotenv
+import requests
+
+
 
 def rename_file(current_name, new_name):
     """Renombra un archivo"""
@@ -96,3 +104,10 @@ def search_files(pattern, directory="files"):
             if pattern.lower() in file.lower():
                 results.append(os.path.join(root, file))
     return results
+
+
+def get_datetime():
+    """Obtiene la fecha y hora actual"""
+    now = datetime.now()
+    formatted_date = now.strftime("%A, %d de %B de %Y - %H:%M")
+    return {"success": True, "message": f"Son las {formatted_date}"}

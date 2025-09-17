@@ -1,52 +1,56 @@
-# agent.py - Agente para procesar comandos con LangChain y Gemma
+# agent.py
+
 import os
 from langchain.agents import Tool, initialize_agent, AgentType
 from langchain_google_genai import ChatGoogleGenerativeAI
-from tools import rename_file, rename_folder, convert_pdf_to_word, convert_image_format, search_files
+from langchain.prompts import SystemMessagePromptTemplate, ChatPromptTemplate, MessagesPlaceholder
 from dotenv import load_dotenv
+from langchain.memory import ConversationBufferMemory
+from tts import TTS
 
-# Cargar variables de entorno
+from tools import rename_file, rename_folder, convert_pdf_to_word, convert_image_format, search_files, get_datetime
+
 load_dotenv()
 
-# Configurar la API key de Gemma desde .env
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY or GEMINI_API_KEY == "tu_api_key_de_google_gemini_aqui":
     raise ValueError("Por favor configura tu API key de Gemini en el archivo .env")
 
-# Definir las herramientas disponibles
-# Las descripciones son muy importantes para que el LLM sepa cómo usar la herramienta.
 tools = [
     Tool(
         name="rename_file",
         func=lambda x: rename_file(*x.split("|")),
-        description="Util para renombrar archivos. La entrada deben ser dos strings separados por |: nombre_actual|nuevo_nombre"
+        description="Útil para renombrar archivos. Formato: nombre_actual|nuevo_nombre"
     ),
     Tool(
         name="rename_folder",
         func=lambda x: rename_folder(*x.split("|")),
-        description="Util para renombrar carpetas. La entrada deben ser dos strings separados por |: nombre_actual|nuevo_nombre"
+        description="Útil para renombrar carpetas. Formato: nombre_actual|nuevo_nombre"
     ),
     Tool(
         name="convert_pdf_to_word",
-        func=lambda x: convert_pdf_to_word(x),
-        description="Util para convertir archivos PDF a formato Word. La entrada debe ser la ruta al archivo PDF."
+        func=convert_pdf_to_word,
+        description="Útil para convertir archivos PDF a Word. Formato: ruta_del_pdf"
     ),
     Tool(
         name="convert_image_format",
         func=lambda x: convert_image_format(*x.split("|")),
-        description="Util para convertir formatos de imagen. La entrada deben ser dos strings separados por |: ruta_imagen|nuevo_formato (ej. jpg, png)"
+        description="Útil para convertir una imagen a otro formato (ej. jpg a png). Formato: ruta_de_la_imagen|nuevo_formato"
     ),
     Tool(
         name="search_files",
-        func=lambda x: search_files(x),
-        description="Util para buscar archivos por un patrón en el nombre. La entrada debe ser el patrón de búsqueda."
+        func=search_files,
+        description="Útil para buscar archivos. Formato: patrón_de_búsqueda"
+    ),
+    Tool(
+        name="get_datetime",
+        func=get_datetime,
+        description="Útil para obtener la fecha y hora actual."
     )
 ]
 
-# Inicializar el modelo de lenguaje
 def initialize_llm():
-    """Inicializa el modelo de lenguaje Gemma a través de la API de Google."""
     return ChatGoogleGenerativeAI(
         model="gemini-1.5-flash-latest",
         google_api_key=GEMINI_API_KEY,
@@ -54,36 +58,55 @@ def initialize_llm():
         max_output_tokens=256
     )
 
-# Procesar el comando del usuario usando un agente de LangChain
-def process_command(command: str):
-    """
-    Procesa un comando de lenguaje natural utilizando un agente de IA para seleccionar
-    y ejecutar la herramienta adecuada.
-    """
+system_message = (
+    "Eres FileMate AI, un asistente de archivos. "
+    "Tu objetivo es asistir al usuario con tareas de manipulación de archivos. "
+    "Responde de manera natural y concisa en español. "
+)
+
+prompt = ChatPromptTemplate.from_messages([
+    SystemMessagePromptTemplate.from_template(system_message),
+    MessagesPlaceholder(variable_name="chat_history"),
+    ("human", "{input}"),
+])
+
+def process_command(command: str, chat_history: list = None, modo_voz: str = "Voz y texto"):
     try:
         llm = initialize_llm()
-        
-        # Inicializamos el agente. ZERO_SHOT_REACT_DESCRIPTION es un tipo de agente estándar
-        # que decide qué herramienta usar basándose en las descripciones de las herramientas.
+
+        memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+        if chat_history:
+            for message in chat_history:
+                if message['type'] == 'human':
+                    memory.chat_memory.add_user_message(message['content'])
+                else:
+                    memory.chat_memory.add_ai_message(message['content'])
+
         agent_executor = initialize_agent(
             tools,
             llm,
-            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            verbose=True  # Poner en True para ver los pensamientos del agente en la consola
+            agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,
+            verbose=True,
+            memory=memory,
+            handle_parsing_errors=True,
+            prompt=prompt
         )
+
+        result = agent_executor.invoke({"input": command})
+        respuesta = str(result["output"])
         
-        # Ejecutamos el agente con el comando del usuario
-        # El agente pensará y decidirá qué herramienta llamar
-        result = agent_executor.run(command)
+        audio_path = None
+        if modo_voz == "Voz y texto":
+            tts = TTS()
+            audio_path = tts.process(respuesta)
         
-        # LangChain puede devolver directamente el diccionario de la herramienta o un string.
-        # Si es un string, lo envolvemos en el formato esperado.
-        if isinstance(result, dict):
-            return result
-        else:
-            return {"success": True, "message": str(result)}
+        return {
+            "success": True,
+            "message": respuesta,
+            "memory": memory.load_memory_variables({}),
+            "audio_path": audio_path
+        }
 
     except Exception as e:
-        # Si algo falla durante la ejecución del agente, devolvemos un error.
-        error_message = f"El agente de IA no pudo procesar el comando. Error: {str(e)}"
+        error_message = f"Oops, no pude procesarlo. Error: {str(e)}. ¿Podés reformularlo?"
         return {"success": False, "message": error_message}
