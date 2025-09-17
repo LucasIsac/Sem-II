@@ -4,14 +4,12 @@ import os
 from langchain.agents import Tool, initialize_agent, AgentType
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import SystemMessagePromptTemplate, ChatPromptTemplate, MessagesPlaceholder
-
 from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local
-
 from dotenv import load_dotenv
 from langchain.memory import ConversationBufferMemory
 from tts import TTS
+from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local,  get_datetime
 
-from tools import rename_file, rename_folder, convert_pdf_to_word, convert_image_format, search_files, get_datetime
 
 load_dotenv()
 
@@ -19,6 +17,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY or GEMINI_API_KEY == "tu_api_key_de_google_gemini_aqui":
     raise ValueError("Por favor configura tu API key de Gemini en el archivo .env")
+
+
 
 # Definir las herramientas disponibles
 # Las descripciones son muy importantes para que el LLM sepa cómo usar la herramienta.
@@ -38,7 +38,6 @@ tools = [
         name="convert_pdf_to_word_cloudconvert",
         func=lambda x: convert_pdf_to_word_cloudconvert(x),
         description="Útil para convertir archivos PDF a formato Word manteniendo formato y imágenes. La entrada debe ser la ruta al archivo PDF."
-
     ),
     Tool(
         name="convert_image_format",

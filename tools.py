@@ -5,6 +5,7 @@ from docx import Document
 import PyPDF2
 from PIL import Image
 import glob
+
 from datetime import datetime
 from elevenlabs import ElevenLabs
 from playsound import playsound
@@ -128,12 +129,12 @@ def search_files(pattern, directory="files"):
     return results
 
 
-
 def get_datetime():
     """Obtiene la fecha y hora actual"""
     now = datetime.now()
     formatted_date = now.strftime("%A, %d de %B de %Y - %H:%M")
     return {"success": True, "message": f"Son las {formatted_date}"}
+
 
 def convert_pdf_to_word_local(pdf_path, docx_path=None):
     """
