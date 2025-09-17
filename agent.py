@@ -2,7 +2,8 @@
 import os
 from langchain.agents import Tool, initialize_agent, AgentType
 from langchain_google_genai import ChatGoogleGenerativeAI
-from tools import rename_file, rename_folder, convert_pdf_to_word, convert_image_format, search_files
+
+from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -13,6 +14,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY or GEMINI_API_KEY == "tu_api_key_de_google_gemini_aqui":
     raise ValueError("Por favor configura tu API key de Gemini en el archivo .env")
+
+
 
 # Definir las herramientas disponibles
 # Las descripciones son muy importantes para que el LLM sepa cómo usar la herramienta.
@@ -28,9 +31,9 @@ tools = [
         description="Util para renombrar carpetas. La entrada deben ser dos strings separados por |: nombre_actual|nuevo_nombre"
     ),
     Tool(
-        name="convert_pdf_to_word",
-        func=lambda x: convert_pdf_to_word(x),
-        description="Util para convertir archivos PDF a formato Word. La entrada debe ser la ruta al archivo PDF."
+        name="convert_pdf_to_word_cloudconvert",
+        func=lambda x: convert_pdf_to_word_cloudconvert(x),
+        description="Útil para convertir archivos PDF a formato Word manteniendo formato y imágenes. La entrada debe ser la ruta al archivo PDF."
     ),
     Tool(
         name="convert_image_format",
@@ -41,6 +44,11 @@ tools = [
         name="search_files",
         func=lambda x: search_files(x),
         description="Util para buscar archivos por un patrón en el nombre. La entrada debe ser el patrón de búsqueda."
+    ),
+    Tool(
+        name="convert_pdf_to_word_local",
+        func=lambda x: convert_pdf_to_word_local(x),
+        description="Convierte un PDF a Word localmente. Úsalo como alternativa si la conversión con CloudConvert falla. La entrada debe ser la ruta al archivo PDF."
     )
 ]
 
@@ -53,6 +61,7 @@ def initialize_llm():
         temperature=0.7,
         max_output_tokens=256
     )
+
 
 # Procesar el comando del usuario usando un agente de LangChain
 def process_command(command: str):
@@ -74,7 +83,7 @@ def process_command(command: str):
         
         # Ejecutamos el agente con el comando del usuario
         # El agente pensará y decidirá qué herramienta llamar
-        result = agent_executor.run(command)
+        result = agent_executor.invoke({"input": command})
         
         # LangChain puede devolver directamente el diccionario de la herramienta o un string.
         # Si es un string, lo envolvemos en el formato esperado.

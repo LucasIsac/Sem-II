@@ -5,6 +5,13 @@ from docx import Document
 import PyPDF2
 from PIL import Image
 import glob
+import cloudconvert
+from dotenv import load_dotenv
+from pdf2docx import Converter
+
+# Cargar la API key de CloudConvert
+load_dotenv()
+CLOUDCONVERT_API_KEY = os.getenv("CLOUDCONVERT_API_KEY")
 
 def rename_file(current_name, new_name):
     """Renombra un archivo"""
@@ -32,39 +39,55 @@ def rename_folder(current_name, new_name):
     except Exception as e:
         return {"success": False, "message": f"Error al renombrar carpeta: {str(e)}"}
 
-def convert_pdf_to_word(pdf_path, docx_path=None):
-    """Convierte un archivo PDF a formato Word"""
+
+def convert_pdf_to_word_cloudconvert(pdf_path, docx_path=None):
+    """
+    Convierte un archivo PDF a Word usando la API de CloudConvert.
+    """
+    if not CLOUDCONVERT_API_KEY:
+        return {"success": False, "message": "La API key de CloudConvert no está configurada."}
+
     pdf_full_path = os.path.join('files', pdf_path)
     if not os.path.exists(pdf_full_path):
-        return {"success": False, "message": f"El archivo PDF '{pdf_path}' no existe"}
-    
+        return {"success": False, "message": f"El archivo PDF '{pdf_path}' no existe."}
+
     if not docx_path:
         docx_path = pdf_path.replace('.pdf', '.docx')
     docx_full_path = os.path.join('files', docx_path)
-    
+
     try:
-        # Leer el PDF
-        pdf_file = open(pdf_full_path, 'rb')
-        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        cloudconvert.configure(api_key=CLOUDCONVERT_API_KEY)
+
+        job = cloudconvert.Job.create(payload={
+            "tasks": {
+                'import-file': {
+                    'operation': 'import/upload'
+                },
+                'convert-file': {
+                    'operation': 'convert',
+                    'input': 'import-file',
+                    'output_format': 'docx',
+                    'engine': 'ocrmypdf'
+                },
+                'export-file': {
+                    'operation': 'export/url',
+                    'input': 'convert-file'
+                }
+            }
+        })
+
+        upload_task = job['tasks'][0]
+        cloudconvert.Task.upload(file_name=pdf_full_path, task=upload_task)
         
-        # Crear un nuevo documento Word
-        doc = Document()
-        
-        # Extraer texto de cada página
-        for page_num in range(len(pdf_reader.pages)):
-            page = pdf_reader.pages[page_num]
-            text = page.extract_text()
-            doc.add_paragraph(text)
-            if page_num < len(pdf_reader.pages) - 1:  # No agregar salto de página después de la última página
-                doc.add_page_break()
-        
-        # Guardar el documento Word
-        doc.save(docx_full_path)
-        pdf_file.close()
-        
-        return {"success": True, "message": f"PDF convertido a Word: {docx_path}", "new_file": docx_full_path}
+        exported_url_task_id = job['tasks'][2]['id']
+        res = cloudconvert.Task.wait(id=exported_url_task_id)
+
+        file_info = res.get("result").get("files")[0]
+        cloudconvert.download(filename=docx_full_path, url=file_info['url'])
+
+        return {"success": True, "message": f"PDF convertido a Word con CloudConvert: {docx_path}", "new_file": docx_full_path}
     except Exception as e:
-        return {"success": False, "message": f"Error en la conversión: {str(e)}"}
+        return {"success": False, "message": f"Error en la conversión con CloudConvert: {str(e)}"}
 
 def convert_image_format(image_path, new_format, output_path=None):
     """Convierte una imagen a otro formato"""
@@ -96,3 +119,23 @@ def search_files(pattern, directory="files"):
             if pattern.lower() in file.lower():
                 results.append(os.path.join(root, file))
     return results
+
+def convert_pdf_to_word_local(pdf_path, docx_path=None):
+    """
+    Convierte un archivo PDF a Word localmente usando pdf2docx. Es una alternativa a la API de CloudConvert.
+    """
+    pdf_full_path = os.path.join('files', pdf_path)
+    if not os.path.exists(pdf_full_path):
+        return {"success": False, "message": f"El archivo PDF '{pdf_path}' no existe."}
+
+    if not docx_path:
+        docx_path = pdf_path.replace('.pdf', '.docx')
+    docx_full_path = os.path.join('files', docx_path)
+
+    try:
+        cv = Converter(pdf_full_path)
+        cv.convert(docx_full_path, start=0, end=None)
+        cv.close()
+        return {"success": True, "message": f"PDF convertido a Word localmente: {docx_path}", "new_file": docx_full_path}
+    except Exception as e:
+        return {"success": False, "message": f"Error en la conversión local de PDF a Word: {str(e)}"}

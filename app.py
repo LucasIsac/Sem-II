@@ -2,7 +2,7 @@
 import streamlit as st
 import os
 from agent import process_command
-from tools import convert_pdf_to_word, rename_file, rename_folder, convert_image_format, list_files, search_files
+from tools import convert_pdf_to_word_cloudconvert, rename_file, rename_folder, convert_image_format, list_files, search_files
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
