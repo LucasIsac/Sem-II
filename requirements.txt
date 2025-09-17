@@ -8,4 +8,6 @@ Pillow
 python-multipart
 python-dotenv
 langchain-google-genai
-requests
+requests>=2.31.0
+SpeechRecognition>=3.10.1
+
