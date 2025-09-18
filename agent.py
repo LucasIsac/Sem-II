@@ -8,7 +8,7 @@ from tools import rename_file, rename_folder, convert_image_format, search_files
 from dotenv import load_dotenv
 from langchain.memory import ConversationBufferMemory
 from tts import TTS
-from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local,  get_datetime
+from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local,  get_datetime, create_folder, delete_file, delete_folder, move_file, move_folder, create_backup, convert_word_to_pdf
 
 
 load_dotenv()
@@ -56,6 +56,41 @@ tools = [
         name="convert_pdf_to_word_local",
         func=lambda x: convert_pdf_to_word_local(x),
         description="Convierte un PDF a Word localmente. Úsalo como alternativa si la conversión con CloudConvert falla. La entrada debe ser la ruta al archivo PDF."
+    ),
+    Tool(
+        name="create_folder",
+        func=create_folder,
+        description="Útil para crear una nueva carpeta. La entrada debe ser el nombre de la carpeta a crear."
+    ),
+    Tool(
+        name="delete_file",
+        func=delete_file,
+        description="Útil para eliminar un archivo. La entrada debe ser el nombre del archivo a eliminar."
+    ),
+    Tool(
+        name="delete_folder",
+        func=delete_folder,
+        description="Útil para eliminar una carpeta y todo su contenido. La entrada debe ser el nombre de la carpeta a eliminar."
+    ),
+    Tool(
+        name="move_file",
+        func=lambda x: move_file(*x.split("|")),
+        description="Útil para mover un archivo a otra carpeta. Formato: nombre_archivo|carpeta_destino"
+    ),
+    Tool(
+        name="move_folder",
+        func=lambda x: move_folder(*x.split("|")),
+        description="Útil para mover una carpeta a otra. Formato: nombre_carpeta|carpeta_destino"
+    ),
+    Tool(
+        name="create_backup",
+        func=create_backup,
+        description="Útil para crear un backup de un archivo o carpeta. La entrada debe ser el nombre del archivo o carpeta."
+    ),
+    Tool(
+        name="convert_word_to_pdf",
+        func=convert_word_to_pdf,
+        description="Útil para convertir un archivo de Word (.docx) a PDF. La entrada debe ser el nombre del archivo de Word."
     )
 ]
 
@@ -89,7 +124,13 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
         Podés ayudar al usuario a realizar las siguientes acciones:
         - 📂 Renombrar archivos
         - 📂 Renombrar carpetas
+        - 📂 Crear carpetas
+        - 📂 Mover archivos y carpetas
+        - 🗑️ Eliminar archivos
+        - 🗑️ Eliminar carpetas
+        - 💾 Crear backups de archivos y carpetas
         - 📄 Convertir PDF a Word (usando CloudConvert o localmente)
+        - 📄 Convertir Word a PDF
         - 🖼️ Convertir imágenes entre formatos
         - 🔎 Buscar archivos
         - 📅 Obtener la fecha y hora actual

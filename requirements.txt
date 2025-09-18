@@ -13,3 +13,4 @@ SpeechRecognition>=3.10.1
 pdf2docx
 elevenlabs
 playsound==1.2.2
+docx2pdf
