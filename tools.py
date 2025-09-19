@@ -115,8 +115,27 @@ def convert_image_format(image_path, new_format, output_path=None):
         return {"success": False, "message": f"Error en la conversión de imagen: {str(e)}"}
 
 def list_files(directory="files"):
-    """Lista todos los archivos en un directorio"""
-    return [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+    """Lista todos los archivos y carpetas en un directorio, ordenando carpetas primero."""
+    folders = []
+    files = []
+    
+    if not os.path.exists(directory):
+        return []
+
+    for f in os.listdir(directory):
+        path = os.path.join(directory, f)
+        if os.path.isdir(path):
+            folders.append({"name": f, "type": "carpeta"})
+        elif os.path.isfile(path):
+            files.append({"name": f, "type": "archivo"})
+    
+    # Ordenar alfabéticamente cada lista
+    folders.sort(key=lambda x: x['name'])
+    files.sort(key=lambda x: x['name'])
+    
+    # Combinar, carpetas primero
+    return folders + files
+
 
 def search_files(pattern, directory="files"):
     """Busca archivos que coincidan con un patrón"""
@@ -209,20 +228,20 @@ def move_file(file_name, dest_folder, base_dir="files"):
     Mueve un archivo a otra carpeta dentro del directorio base.
     """
     source_path = os.path.join(base_dir, file_name)
-    dest_path = os.path.join(base_dir, dest_folder, file_name)
+    dest_dir = os.path.join(base_dir, dest_folder)
 
     if not os.path.exists(source_path):
-        return {"success": False, "message": f"El archivo '{file_name}' no existe en {base_dir}"}
+        return {"success": False, "message": f"El archivo '{file_name}' no existe."}
     
     if not os.path.isfile(source_path):
-        return {"success": False, "message": f"'{file_name}' no es un archivo válido"}
+        return {"success": False, "message": f"'{file_name}' no es un archivo válido."}
     
     # Crear carpeta destino si no existe
-    os.makedirs(os.path.join(base_dir, dest_folder), exist_ok=True)
+    os.makedirs(dest_dir, exist_ok=True)
 
     try:
-        shutil.move(source_path, dest_path)
-        return {"success": True, "message": f"Archivo '{file_name}' movido a '{dest_folder}'"}
+        shutil.move(source_path, dest_dir)
+        return {"success": True, "message": f"Archivo '{file_name}' movido a la carpeta '{dest_folder}'."}
     except Exception as e:
         return {"success": False, "message": f"No se pudo mover el archivo: {str(e)}"}
 
@@ -231,20 +250,20 @@ def move_folder(folder_name, dest_folder, base_dir="files"):
     Mueve una carpeta y todo su contenido a otra carpeta dentro del directorio base.
     """
     source_path = os.path.join(base_dir, folder_name)
-    dest_path = os.path.join(base_dir, dest_folder, folder_name)
+    dest_dir = os.path.join(base_dir, dest_folder)
 
     if not os.path.exists(source_path):
-        return {"success": False, "message": f"La carpeta '{folder_name}' no existe en {base_dir}"}
+        return {"success": False, "message": f"La carpeta '{folder_name}' no existe."}
     
     if not os.path.isdir(source_path):
-        return {"success": False, "message": f"'{folder_name}' no es una carpeta válida"}
+        return {"success": False, "message": f"'{folder_name}' no es una carpeta válida."}
     
     # Crear carpeta destino si no existe
-    os.makedirs(os.path.join(base_dir, dest_folder), exist_ok=True)
+    os.makedirs(dest_dir, exist_ok=True)
 
     try:
-        shutil.move(source_path, dest_path)
-        return {"success": True, "message": f"Carpeta '{folder_name}' movida a '{dest_folder}'"}
+        shutil.move(source_path, dest_dir)
+        return {"success": True, "message": f"Carpeta '{folder_name}' movida a la carpeta '{dest_folder}'."}
     except Exception as e:
         return {"success": False, "message": f"No se pudo mover la carpeta: {str(e)}"}
 
@@ -280,8 +299,6 @@ def create_backup(item_name, base_dir="files", backup_dir="backups"):
 
     else:
         return {"success": False, "message": f"'{item_name}' no es un archivo ni una carpeta válida"}
-
-
 
 def convert_word_to_pdf(word_file, output_dir="files"):
     """

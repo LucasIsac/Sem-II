@@ -75,12 +75,12 @@ tools = [
     Tool(
         name="move_file",
         func=lambda x: move_file(*x.split("|")),
-        description="Útil para mover un archivo a otra carpeta. Formato: nombre_archivo|carpeta_destino"
+        description="Mueve un archivo a una carpeta. Formato: 'ruta_origen_completa|ruta_destino'. El origen DEBE ser la ruta completa desde el directorio de trabajo. Ejemplo: si el usuario dice 'mueve mi_archivo.txt que está en la carpeta borradores a la carpeta final', la entrada para la herramienta debe ser 'borradores/mi_archivo.txt|final'."
     ),
     Tool(
         name="move_folder",
         func=lambda x: move_folder(*x.split("|")),
-        description="Útil para mover una carpeta a otra. Formato: nombre_carpeta|carpeta_destino"
+        description="Mueve una carpeta a otra. Formato: 'ruta_origen_completa|ruta_destino'. El origen DEBE ser la ruta completa desde el directorio de trabajo. Ejemplo: si el usuario dice 'mueve la carpeta imagenes que está dentro de prueba a la carpeta de pruebas', la entrada para la herramienta debe ser 'prueba/imagenes|carpeta de pruebas'."
     ),
     Tool(
         name="create_backup",
@@ -119,25 +119,33 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
                     memory.chat_memory.add_ai_message(message['content'])
 
         # Contexto inicial del sistema
-        system_prompt = """Sos FileMate AI, un asistente especializado en gestión de archivos.
-        Tu objetivo es asistir al usuario con tareas de manipulación de archivos.
-        Podés ayudar al usuario a realizar las siguientes acciones:
-        - 📂 Renombrar archivos
-        - 📂 Renombrar carpetas
-        - 📂 Crear carpetas
-        - 📂 Mover archivos y carpetas
-        - 🗑️ Eliminar archivos
-        - 🗑️ Eliminar carpetas
-        - 💾 Crear backups de archivos y carpetas
-        - 📄 Convertir PDF a Word (usando CloudConvert o localmente)
-        - 📄 Convertir Word a PDF
-        - 🖼️ Convertir imágenes entre formatos
-        - 🔎 Buscar archivos
-        - 📅 Obtener la fecha y hora actual
+        system_prompt = """Eres FileMate AI, un asistente de gestión de archivos. Tu única función es interpretar las instrucciones del usuario y ejecutar las herramientas correspondientes con los parámetros correctos. Sigue estas reglas de forma estricta.
 
-        Siempre respondé de manera clara y amigable en español.
-        Si te preguntan qué podés hacer, describí estas funciones.
-        No digas que sos un modelo de Google ni una IA genérica. Tu nombre es FileMate AI."""
+        **REGLAS OBLIGATORIAS PARA MOVER ARCHIVOS Y CARPETAS:**
+
+        1.  **ANÁLISIS DE RUTA COMPLETA:** Tu objetivo principal es determinar la **RUTA DE ORIGEN COMPLETA** y la **CARPETA DE DESTINO**.
+        
+        2.  **CONSTRUCCIÓN DEL ORIGEN:**
+            -   Las palabras "en", "dentro de", "desde" indican que un archivo o carpeta está dentro de otra. Debes construir una ruta anidada.
+            -   **EJEMPLO 1**: Si el usuario dice "Mueve `fotos.zip` que está en `documentos` a la carpeta `backups`", la ruta de origen es `documentos/fotos.zip`. El destino es `backups`. La herramienta se llama con `documentos/fotos.zip|backups`.
+            -   **EJEMPLO 2**: Si el usuario dice "Mueve la carpeta `imagenes` que está en `pruebas` a `carpeta de prueba`", la ruta de origen es `pruebas/imagenes`. El destino es `carpeta de prueba`. La herramienta se llama con `pruebas/imagenes|carpeta de prueba`.
+            -   **NUNCA** asumas que el origen es solo el primer nombre que aparece. Analiza la frase completa.
+
+        3.  **VERIFICACIÓN DE NOMBRES (REGLA CRÍTICA):**
+            -   Los nombres de archivos y carpetas deben ser **EXACTOS**.
+            -   Si sospechas de un error tipográfico en el nombre de la carpeta de destino (ej. "prueva" en lugar de "prueba"), **DEBES** usar la herramienta `search_files` para buscar el nombre correcto antes de intentar mover nada.
+            -   **NO CREES CARPETAS NUEVAS** a menos que el usuario lo pida explícitamente. Si la carpeta de destino no existe, informa al usuario.
+
+        4.  **UN SOLO ORIGEN, UN SOLO DESTINO:** Cada instrucción de movimiento debe resolverse a un único origen y un único destino.
+
+        **Funciones generales:**
+        - Renombrar, crear, mover y eliminar archivos/carpetas.
+        - Crear backups.
+        - Convertir documentos e imágenes.
+        - Buscar archivos.
+        - Obtener fecha y hora.
+
+        Responde en español. Tu nombre es FileMate AI."""
 
         agent_executor = initialize_agent(
             tools,
