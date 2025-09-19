@@ -75,26 +75,41 @@ Para poner en marcha el proyecto, sigue estos pasos:
 
 ## Tecnologías Utilizadas
 
--   **Python**: Lenguaje de programación principal.
--   **Streamlit**: Para crear la interfaz de usuario web.
--   **LangChain**: Framework para construir aplicaciones con modelos de lenguaje.
--   **Google Gemini**: Modelo de lenguaje para la IA.
--   **ElevenLabs**: Para la síntesis de voz (Text-to-Speech).
--   **Pillow**: Para la manipulación de imágenes.
--   **python-docx**: Para crear archivos de Word.
--   **PyPDF2**: Para leer archivos PDF.
+-   **Lenguaje de Programación**:
+    -   **Python**: El lenguaje principal sobre el que se construye todo el proyecto.
+-   **Inteligencia Artificial y Modelos de Lenguaje**:
+    -   **Google Gemini**: Modelo de lenguaje de última generación que impulsa la capacidad de razonamiento del agente.
+    -   **LangChain**: Framework esencial para orquestar las interacciones entre el modelo de lenguaje, las herramientas y la lógica de la aplicación.
+-   **Interfaz de Usuario**:
+    -   **Streamlit**: Para crear de forma rápida una interfaz de usuario web interactiva.
+-   **Interacción por Voz**:
+    -   **SpeechRecognition**: Para transcribir los comandos de voz del usuario a texto.
+    -   **ElevenLabs**: Para sintetizar respuestas de voz (Text-to-Speech) con alta calidad.
+    -   **Playsound**: Para reproducir los archivos de audio generados.
+-   **Manipulación de Archivos**:
+    -   **CloudConvert API**: Servicio externo para realizar conversiones de formato de archivo robustas.
+    -   **Pillow**: Para el procesamiento y conversión de imágenes.
+    -   **python-docx**: Para la creación y manipulación de archivos `.docx` (Word).
+    -   **PyPDF2**: Para la lectura y manipulación básica de archivos `.pdf`.
+    -   **pdf2docx / docx2pdf**: Librerías especializadas para conversiones directas entre PDF y Word.
+-   **Comunicación y Entorno**:
+    -   **Requests**: Para realizar peticiones HTTP a APIs externas como CloudConvert.
+    -   **python-dotenv**: Para la gestión de variables de entorno y claves de API.
 
-## Nivel de Actualidad de las Tecnologías
+## Nivel de Actualidad y Relevancia de las Tecnologías
 
-El proyecto combina tecnologías de vanguardia con herramientas modernas y establecidas para lograr un resultado robusto y funcional.
+El proyecto integra un ecosistema de herramientas que se pueden clasificar según su modernidad y rol en la industria actual.
 
--   **Tecnologías de Vanguardia (Lo más nuevo):**
-    -   **Google Gemini / Gemma:** Modelo de lenguaje de última generación (lanzado entre finales de 2023 y principios de 2024).
-    -   **LangChain:** Framework líder para el desarrollo con LLMs, en constante y rápida evolución.
+-   **Nivel Vanguardia (Cutting-Edge):** Estas son las tecnologías más recientes y disruptivas que definen el estado del arte en IA.
+    -   **Google Gemini**: Como uno de los modelos de lenguaje más avanzados, representa la frontera de la capacidad de la IA generativa. Su lanzamiento es muy reciente (finales de 2023).
+    -   **LangChain**: Aunque es un proyecto joven, se ha convertido en el estándar de facto para construir aplicaciones con LLMs. Su desarrollo es extremadamente activo y evoluciona a una velocidad vertiginosa.
+    -   **ElevenLabs**: Líder en el campo de la síntesis de voz realista, ofreciendo una calidad que era inalcanzable hace pocos años.
 
--   **Tecnologías Modernas:**
-    -   **Streamlit:** Un framework relativamente reciente y muy popular para crear aplicaciones web interactivas en el ecosistema de Python y la IA.
+-   **Nivel Moderno y Relevante:** Tecnologías que, sin ser necesariamente de última generación, son estándares actuales en el desarrollo de software, especialmente en el ámbito de datos y IA.
+    -   **Streamlit**: Se ha consolidado como la herramienta preferida para crear prototipos y aplicaciones de datos/IA en Python de forma rápida y eficiente.
+    -   **CloudConvert**: El uso de APIs especializadas para tareas complejas (como la conversión de archivos) es un enfoque de desarrollo moderno que favorece la modularidad y la eficiencia.
 
--   **Tecnologías Establecidas y Maduras:**
-    -   **Python:** Lenguaje de programación con décadas de existencia, pero más relevante que nunca gracias a su dominio en el campo de la IA.
-    -   **Pillow, PyPDF2, python-docx:** Librerías estándar y muy confiables para la manipulación de archivos, mantenidas activamente durante años.
+-   **Nivel Establecido y Maduro:** Librerías y herramientas que han demostrado su fiabilidad a lo largo del tiempo y son pilares en el ecosistema de Python.
+    -   **Python**: Sigue siendo el lenguaje dominante en IA y ciencia de datos, con un ecosistema maduro y una comunidad masiva.
+    -   **Pillow, PyPDF2, python-docx, Requests**: Son librerías fundamentales y altamente confiables, mantenidas activamente durante años, que resuelven problemas específicos de manera muy eficaz.
+    -   **SpeechRecognition**: Una librería consolidada que proporciona una interfaz sencilla para varios motores de reconocimiento de voz.
