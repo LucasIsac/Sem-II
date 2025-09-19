@@ -1,7 +1,5 @@
 # Historial de Cambios
 
-## Cline
-
 ### Modificaciones y Mejoras
 
 - **Mejora en la Lógica del Agente de IA (`agent.py`)**:
