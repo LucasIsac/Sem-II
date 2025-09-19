@@ -63,14 +63,19 @@ with st.sidebar:
 
     with st.container():
         st.subheader("📁 Archivos de Trabajo")
+
+        def display_files(directory, level=0):
+            items = list_files(directory)
+            for item in items:
+                if item['type'] == 'carpeta':
+                    with st.expander(f"📁 {item['name']}"):
+                        display_files(os.path.join(directory, item['name']), level + 1)
+                else:
+                    st.markdown(f"{'&nbsp;' * 4 * level}📄 {item['name']}")
+
         if st.button("Mostrar archivos en el sistema"):
-            files = list_files(WORKING_DIR)
-            if files:
-                st.write("**Archivos disponibles:**")
-                for file in files:
-                    st.write(f"- `{file}`")
-            else:
-                st.info("No hay archivos en el directorio.")
+            st.write("**Archivos disponibles:**")
+            display_files(WORKING_DIR)
 
     st.markdown("---")
 

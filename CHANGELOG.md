@@ -1,5 +1,22 @@
 # Historial de Cambios
 
+## Cline
+
+### Modificaciones y Mejoras
+
+- **Mejora en la Lógica del Agente de IA (`agent.py`)**:
+  - Se reescribieron las instrucciones (`system_prompt`) del agente con reglas críticas y obligatorias para interpretar comandos de movimiento de archivos y carpetas.
+  - El agente ahora debe construir rutas de origen completas y anidadas, prestando atención a palabras clave como "en", "dentro de", "desde".
+  - Se implementó una regla de "verificar antes de actuar": el agente ahora está obligado a usar la herramienta `search_files` para confirmar nombres de archivos o carpetas si sospecha de un error tipográfico o ambigüedad, evitando movimientos incorrectos.
+- **Corrección de Bug en Funciones de Movimiento (`tools.py`)**:
+  - Se solucionó un bug crítico en las funciones `move_file` y `move_folder` que causaba que la ruta de destino se construyera incorrectamente. Ahora `shutil.move` funciona de manera predecible.
+- **Mejora en la Visualización de Archivos (`app.py`, `test.py`)**:
+  - Se implementó una vista de árbol jerárquica para mostrar archivos y carpetas.
+  - Las carpetas ahora aparecen con un ícono (📁) y son desplegables para ver su contenido.
+  - Los archivos se muestran con un ícono (📄).
+- **Optimización de `list_files` (`tools.py`)**:
+  - La función ahora ordena los resultados para mostrar siempre las carpetas primero, y luego los archivos, ambos ordenados alfabéticamente.
+
 ## Lucas
 
 ### Modificaciones y Mejoras
