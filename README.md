@@ -95,17 +95,24 @@ Para poner en marcha el proyecto, sigue estos pasos:
 -   **Comunicación y Entorno**:
     -   **Requests**: Para realizar peticiones HTTP a APIs externas como CloudConvert.
     -   **python-dotenv**: Para la gestión de variables de entorno y claves de API.
+-   **Base de Datos Deductiva y Microservicios**:
+    -   **Mangle**: Lenguaje de programación deductivo (extensión de Datalog) de Google, utilizado para crear una base de conocimiento y realizar razonamiento complejo.
+    -   **Go (Golang)**: Lenguaje de programación utilizado para construir el microservicio de alto rendimiento que sirve la base de conocimiento de Mangle.
+    -   **gRPC**: Framework de comunicación moderno y de alta eficiencia para la comunicación entre el agente de Python y el microservicio de Go.
 
 ## Nivel de Actualidad y Relevancia de las Tecnologías
 
 El proyecto integra un ecosistema de herramientas que se pueden clasificar según su modernidad y rol en la industria actual.
 
 -   **Nivel Vanguardia (Cutting-Edge):** Estas son las tecnologías más recientes y disruptivas que definen el estado del arte en IA.
+    -   **Mangle**: Un proyecto reciente de Google que explora el paradigma de las bases de datos deductivas, una aproximación novedosa para el razonamiento en sistemas de IA.
     -   **Google Gemini**: Como uno de los modelos de lenguaje más avanzados, representa la frontera de la capacidad de la IA generativa. Su lanzamiento es muy reciente (finales de 2023).
     -   **LangChain**: Aunque es un proyecto joven, se ha convertido en el estándar de facto para construir aplicaciones con LLMs. Su desarrollo es extremadamente activo y evoluciona a una velocidad vertiginosa.
     -   **ElevenLabs**: Líder en el campo de la síntesis de voz realista, ofreciendo una calidad que era inalcanzable hace pocos años.
 
 -   **Nivel Moderno y Relevante:** Tecnologías que, sin ser necesariamente de última generación, son estándares actuales en el desarrollo de software, especialmente en el ámbito de datos y IA.
+    -   **Go (Golang)**: Se ha establecido como un lenguaje líder para el desarrollo de microservicios de alto rendimiento, concurrencia y sistemas en la nube.
+    -   **gRPC**: Es el estándar moderno para la comunicación entre microservicios, superando a las APIs REST tradicionales en escenarios que requieren alta eficiencia.
     -   **Streamlit**: Se ha consolidado como la herramienta preferida para crear prototipos y aplicaciones de datos/IA en Python de forma rápida y eficiente.
     -   **CloudConvert**: El uso de APIs especializadas para tareas complejas (como la conversión de archivos) es un enfoque de desarrollo moderno que favorece la modularidad y la eficiencia.
 

@@ -1,6 +1,20 @@
 # Historial de Cambios
 
-## Cline
+## 20 de Septiembre de 2025 - Integración de Mangle para Razonamiento Deductivo
+
+### ✨ Nuevas Características
+
+-   **Integración con Mangle:** Se ha añadido una nueva capacidad de razonamiento deductivo al agente de IA mediante la integración del lenguaje de programación Mangle.
+-   **Servicio de Conocimiento gRPC:** Se ha configurado un microservicio local basado en Go que sirve una base de conocimiento de Mangle a través de gRPC.
+-   **Nueva Herramienta - `consultar_base_de_conocimiento`:** Se ha añadido una nueva herramienta en `tools.py` que permite al agente realizar consultas complejas a la base de conocimiento. El cliente gRPC en Python se encarga de la comunicación con el servicio de Mangle.
+-   **Agente Mejorado:** El agente principal en `agent.py` ha sido actualizado para utilizar esta nueva herramienta, permitiéndole responder a preguntas que requieren deducción y razonamiento sobre relaciones de datos.
+
+### 🔧 Configuración
+
+-   Se requiere la instalación de **Go** para ejecutar el servidor de Mangle.
+-   Se han añadido las dependencias de Python `grpcio` y `grpcio-tools`.
+-   Los archivos de la base de conocimiento (`.mgl`) se encuentran en el directorio `mangle_service/example`.
+
 
 ### Modificaciones y Mejoras
 

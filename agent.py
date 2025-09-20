@@ -4,11 +4,11 @@ import os
 from langchain.agents import Tool, initialize_agent, AgentType
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder
-from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local
 from dotenv import load_dotenv
 from langchain.memory import ConversationBufferMemory
 from tts import TTS
-from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local,  get_datetime, create_folder, delete_file, delete_folder, move_file, move_folder, create_backup, convert_word_to_pdf
+from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local,  get_datetime, create_folder, delete_file, delete_folder, move_file, move_folder, create_backup, convert_word_to_pdf, read_file_content, search_in_file, consultar_base_de_conocimiento
+
 
 
 load_dotenv()
@@ -91,12 +91,27 @@ tools = [
         name="convert_word_to_pdf",
         func=convert_word_to_pdf,
         description="Útil para convertir un archivo de Word (.docx) a PDF. La entrada debe ser el nombre del archivo de Word."
+    ),
+    Tool(
+        name="read_file_content",
+        func=read_file_content,
+        description="Útil para leer y obtener el contenido de un archivo. Funciona con texto, código, PDFs o Word."
+    ),
+    Tool(
+        name="search_in_file",
+        func=lambda x: search_in_file(x.split("|")[1], x.split("|")[0]),
+        description="Útil para buscar palabras o frases dentro de un archivo. Formato: palabra|archivo."
+    ),
+    Tool(
+        name="consultar_base_de_conocimiento",
+        func=consultar_base_de_conocimiento,
+        description="Útil para realizar consultas complejas o deductivas sobre una base de conocimiento. Úsalo cuando el usuario haga preguntas que requieran razonar sobre relaciones entre datos, como '¿quién es prioritario?' o '¿qué proyectos están relacionados?'. La entrada debe ser la consulta en formato Mangle, por ejemplo: 'contacto_prioritario(X).'"
     )
 ]
 
 def initialize_llm():
     return ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash-latest",
+        model="gemini-2.5-flash",
         google_api_key=GEMINI_API_KEY,
         temperature=0.7,
         max_output_tokens=256
@@ -161,19 +176,27 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
 
         result = agent_executor.invoke({"input": command})
         respuesta = str(result["output"])
-    
+
+        # Determinar si la respuesta es un mensaje de éxito o de error
+        # basado en el contenido del string que devuelven las herramientas.
+        is_success = not respuesta.lower().startswith(("error", "no pude", "no se pudo"))
+
         audio_path = None
-        if modo_voz == "Voz y texto":
-            tts = TTS()
-            audio_path = tts.process(respuesta)
+        if modo_voz == "Voz y texto" and is_success:
+            try:
+                tts = TTS()
+                audio_path = tts.process(respuesta)
+            except Exception as e:
+                print(f"Error al generar audio TTS: {e}")
+                # No detenemos la ejecución, solo no habrá audio.
         
         return {
-            "success": True,
+            "success": is_success,
             "message": respuesta,
             "memory": memory.load_memory_variables({}),
             "audio_path": audio_path
         }
 
     except Exception as e:
-        error_message = f"Oops, no pude procesarlo. Error: {str(e)}. ¿Podés reformularlo?"
+        error_message = f"Oops, ocurrió un error general al procesar tu comando. Error: {str(e)}. ¿Podrías intentarlo de nuevo de otra manera?"
         return {"success": False, "message": error_message}
