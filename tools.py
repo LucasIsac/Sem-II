@@ -20,11 +20,13 @@ import grpc
 import mangle_pb2
 import mangle_pb2_grpc
 import re
-
+import zipfile
+from shutil import make_archive
 
 # Cargar la API key de CloudConvert
 load_dotenv()
 CLOUDCONVERT_API_KEY = os.getenv("CLOUDCONVERT_API_KEY")
+WORKING_DIR = os.getenv("WORKING_DIRECTORY", "./files")  
 
 def rename_file(current_name, new_name):
     """Renombra un archivo con manejo de errores mejorado."""
@@ -259,24 +261,47 @@ def delete_folder(folder_name, base_dir="files"):
         return f"Ocurrió un error inesperado al eliminar la carpeta: {str(e)}"
 
 def move_file(file_name, dest_folder, base_dir="files"):
-    """Mueve un archivo a otra carpeta con manejo de errores mejorado."""
+    """
+    Mueve un archivo a otra carpeta. Esta función es inteligente: si el archivo no se encuentra
+    en la ruta especificada, lo buscará en todas las subcarpetas.
+    """
     try:
-        source_path = os.path.join(base_dir, file_name)
         dest_dir = os.path.join(base_dir, dest_folder)
+        source_path = os.path.join(base_dir, file_name)
 
+        # Si la ruta proporcionada no existe, buscar el archivo en todo el directorio base.
         if not os.path.exists(source_path):
-            return f"No se pudo mover: el archivo de origen '{file_name}' no existe."
-        
+            found_files = []
+            # os.path.basename para buscar solo por el nombre del archivo
+            target_filename = os.path.basename(file_name)
+            for root, _, files in os.walk(base_dir):
+                if target_filename in files:
+                    # Construir la ruta completa del archivo encontrado
+                    found_files.append(os.path.join(root, target_filename))
+            
+            if len(found_files) == 0:
+                return f"No se pudo mover: el archivo '{target_filename}' no se encontró en ninguna carpeta."
+            if len(found_files) > 1:
+                return f"Conflicto: Se encontraron varios archivos llamados '{target_filename}'. Por favor, especifica la ruta completa."
+            
+            # Si se encontró un único archivo, esa es nuestra nueva ruta de origen.
+            source_path = found_files[0]
+
         if not os.path.isfile(source_path):
             return f"La ruta de origen '{file_name}' es una carpeta, no un archivo. Usa la función para mover carpetas."
         
         # Crear carpeta destino si no existe
         os.makedirs(dest_dir, exist_ok=True)
 
-        shutil.move(source_path, dest_dir)
-        return f"El archivo '{file_name}' se ha movido correctamente a la carpeta '{dest_folder}'."
-    except FileNotFoundError:
-        return f"Error: No se encontró el archivo o la carpeta de destino al intentar mover '{file_name}'."
+        # Usar el nombre base del archivo para el destino final
+        final_dest_path = os.path.join(dest_dir, os.path.basename(source_path))
+
+        shutil.move(source_path, final_dest_path)
+        
+        # Obtener la ruta relativa para el mensaje de éxito
+        relative_source = os.path.relpath(source_path, base_dir)
+        return f"El archivo '{relative_source}' se ha movido correctamente a la carpeta '{dest_folder}'."
+
     except PermissionError:
         return f"Error: No tengo permisos para mover el archivo '{file_name}'."
     except shutil.Error as e:
@@ -451,3 +476,114 @@ def search_in_file(file_path, query):
 
     except Exception as e:
         return f"Ocurrió un error al buscar en '{file_path}': {str(e)}"
+
+def create_zip_archive(source_list: str, zip_path: str = None, base_dir=WORKING_DIR):
+    """
+    Comprime archivos o carpetas específicas dentro del directorio de trabajo.
+    
+    - source_list: string con rutas relativas separadas por coma. Ej: "pruebas/archivo1.txt, pruebas/archivo2.pdf"
+    - zip_path: ruta de destino del archivo .zip (ej: "backups/mis_archivos.zip").
+                Si solo se pasa carpeta, se genera "Comprimido.zip".
+                Si ya existe, se generan versiones "Comprimido1.zip", "Comprimido2.zip", etc.
+    """
+
+    try:
+        items = [s.strip() for s in source_list.split(",")]
+
+        # Si no se especifica zip_path, crear por defecto en base_dir
+        if not zip_path:
+            zip_path = "Comprimido.zip"
+
+        # Si el usuario pasó solo una carpeta como destino → usar Comprimido.zip
+        if os.path.isdir(os.path.join(base_dir, zip_path)):
+            zip_path = os.path.join(zip_path, "Comprimido.zip")
+
+        # Si no termina en .zip, agregar extensión
+        if not zip_path.endswith(".zip"):
+            zip_path += ".zip"
+
+        # Ruta completa
+        zip_full = os.path.join(base_dir, zip_path)
+        os.makedirs(os.path.dirname(zip_full), exist_ok=True)
+
+        # Si ya existe, generar un nombre nuevo
+        base_name, ext = os.path.splitext(zip_full)
+        counter = 1
+        while os.path.exists(zip_full):
+            zip_full = f"{base_name}{counter}{ext}"
+            counter += 1
+
+        # Crear el ZIP
+        with zipfile.ZipFile(zip_full, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for item in items:
+                path = os.path.join(base_dir, item)
+                if not os.path.exists(path):
+                    return f"No se encontró '{item}' en {base_dir}."
+
+                if os.path.isdir(path):
+                    for root, _, files in os.walk(path):
+                        for file in files:
+                            full = os.path.join(root, file)
+                            arcname = os.path.relpath(full, os.path.dirname(path))  
+                            zf.write(full, arcname)
+                else:
+                    arcname = os.path.basename(path)  # Solo nombre del archivo
+                    zf.write(path, arcname)
+
+        return f"Archivo ZIP creado en: {zip_full}"
+
+    except Exception as e:
+        return f"Ocurrió un error al crear ZIP: {str(e)}"
+
+
+def extract_zip_archive(zip_path: str, destination_folder: str, base_dir=WORKING_DIR):
+    """
+    Extrae un archivo ZIP dentro del directorio de trabajo.
+    - zip_path: nombre del .zip
+    - destination_folder: carpeta destino donde se extraen los contenidos
+    """
+    try:
+        full_zip = os.path.join(base_dir, zip_path)
+        dest = os.path.join(base_dir, destination_folder)
+        if not os.path.exists(full_zip):
+            return f"No se encontró el archivo ZIP '{zip_path}'."
+        if not zipfile.is_zipfile(full_zip):
+            return f"'{zip_path}' no es un archivo ZIP válido."
+        os.makedirs(dest, exist_ok=True)
+        with zipfile.ZipFile(full_zip, 'r') as zf:
+            zf.extractall(path=dest)
+        return f"Contenido de '{zip_path}' extraído correctamente en carpeta '{destination_folder}'."
+    except Exception as e:
+        return f"Ocurrió un error al extraer ZIP: {str(e)}"
+
+
+def get_file_structure(directory):
+    """
+    Genera un string que representa la estructura de archivos y carpetas
+    de un directorio de forma recursiva para dar contexto al LLM.
+    """
+    tree = []
+    for root, dirs, files in os.walk(directory):
+        # No incluir el directorio base en el path relativo
+        if root == directory:
+            relative_path = ""
+        else:
+            relative_path = os.path.relpath(root, directory)
+        
+        # Ignorar carpetas de backup para no ensuciar el contexto
+        if "backups" in relative_path.split(os.sep):
+            continue
+
+        level = relative_path.count(os.sep)
+        indent = "    " * level
+        
+        # Añadir la carpeta actual al árbol
+        if relative_path:
+            tree.append(f"{indent}📁 {os.path.basename(root)}/")
+        
+        # Añadir los archivos de la carpeta actual
+        sub_indent = "    " * (level + 1)
+        for f in sorted(files):
+            tree.append(f"{sub_indent}📄 {f}")
+            
+    return "\n".join(tree)

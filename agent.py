@@ -7,7 +7,7 @@ from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, H
 from dotenv import load_dotenv
 from langchain.memory import ConversationBufferMemory
 from tts import TTS
-from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local,  get_datetime, create_folder, delete_file, delete_folder, move_file, move_folder, create_backup, convert_word_to_pdf, read_file_content, search_in_file, consultar_base_de_conocimiento
+from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local,  get_datetime, create_folder, delete_file, delete_folder, move_file, move_folder, create_backup, convert_word_to_pdf, read_file_content, search_in_file, consultar_base_de_conocimiento, create_zip_archive, extract_zip_archive
 
 
 
@@ -19,7 +19,6 @@ if not GEMINI_API_KEY or GEMINI_API_KEY == "tu_api_key_de_google_gemini_aqui":
     raise ValueError("Por favor configura tu API key de Gemini en el archivo .env")
 
 # Definir las herramientas disponibles
-# Las descripciones son muy importantes para que el LLM sepa cómo usar la herramienta.
 
 tools = [
     Tool(
@@ -106,7 +105,18 @@ tools = [
         name="consultar_base_de_conocimiento",
         func=consultar_base_de_conocimiento,
         description="Útil para realizar consultas complejas o deductivas sobre una base de conocimiento. Úsalo cuando el usuario haga preguntas que requieran razonar sobre relaciones entre datos, como '¿quién es prioritario?' o '¿qué proyectos están relacionados?'. La entrada debe ser la consulta en formato Mangle, por ejemplo: 'contacto_prioritario(X).'"
+    ),
+    Tool(
+        name="create_zip_archive",
+        func=lambda x: create_zip_archive(*x.split("|")),
+        description="Útil para comprimir archivos o carpetas en un ZIP. Solo indicá qué querés comprimir y cómo querés llamar al ZIP."
+    ),
+    Tool(
+        name="extract_zip_archive",
+        func=lambda x: extract_zip_archive(*x.split("|")),
+        description="Útil para descomprimir un archivo ZIP. Indicá el nombre del ZIP y la carpeta donde querés extraerlo."
     )
+
 ]
 
 def initialize_llm():
@@ -117,7 +127,7 @@ def initialize_llm():
         max_output_tokens=256
     )
 
-def process_command(command: str, chat_history: list = None, modo_voz: str = "Voz y texto"):
+def process_command(command: str, chat_history: list = None, modo_voz: str = "Voz y texto", file_structure: str = ""):
     """
     Procesa un comando de lenguaje natural utilizando un agente de IA para seleccionar
     y ejecutar la herramienta adecuada.
@@ -134,19 +144,22 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
                     memory.chat_memory.add_ai_message(message['content'])
 
         # Contexto inicial del sistema
-        system_prompt = """Eres FileMate AI, un asistente de gestión de archivos. Tu única función es interpretar las instrucciones del usuario y ejecutar las herramientas correspondientes con los parámetros correctos. Sigue estas reglas de forma estricta.
+        system_prompt = f"""Eres FileMate AI, un asistente de gestión de archivos. Tu única función es interpretar las instrucciones del usuario y ejecutar las herramientas correspondientes con los parámetros correctos. Sigue estas reglas de forma estricta.
 
-        **REGLAS OBLIGATORIAS PARA MOVER ARCHIVOS Y CARPETAS:**
+        **CONTEXTO DE ARCHIVOS ACTUAL:**
+        Aquí está la estructura de archivos y carpetas con la que estás trabajando. Úsala como referencia principal para localizar archivos y entender dónde están las cosas. No tienes que pedirle al usuario esta información, ya la tienes aquí:
+        ```
+        {file_structure}
+        ```
 
-        1.  **ANÁLISIS DE RUTA COMPLETA:** Tu objetivo principal es determinar la **RUTA DE ORIGEN COMPLETA** y la **CARPETA DE DESTINO**.
-        
-        2.  **CONSTRUCCIÓN DEL ORIGEN:**
-            -   Las palabras "en", "dentro de", "desde" indican que un archivo o carpeta está dentro de otra. Debes construir una ruta anidada.
-            -   **EJEMPLO 1**: Si el usuario dice "Mueve `fotos.zip` que está en `documentos` a la carpeta `backups`", la ruta de origen es `documentos/fotos.zip`. El destino es `backups`. La herramienta se llama con `documentos/fotos.zip|backups`.
-            -   **EJEMPLO 2**: Si el usuario dice "Mueve la carpeta `imagenes` que está en `pruebas` a `carpeta de prueba`", la ruta de origen es `pruebas/imagenes`. El destino es `carpeta de prueba`. La herramienta se llama con `pruebas/imagenes|carpeta de prueba`.
-            -   **NUNCA** asumas que el origen es solo el primer nombre que aparece. Analiza la frase completa.
+        **REGLAS GENERALES:**
 
-        3.  **VERIFICACIÓN DE NOMBRES (REGLA CRÍTICA):**
+        1.  **Usa el Contexto:** El **CONTEXTO DE ARCHIVOS ACTUAL** es tu referencia principal para saber qué archivos existen y dónde están. Úsalo para informar tus decisiones.
+
+        2.  **Mover Archivos es Sencillo:** Para mover un archivo, solo necesitas su nombre y el destino. La herramienta `move_file` es inteligente y lo buscará por ti si no está en la raíz.
+            -   **Ejemplo:** Si el usuario dice "mueve `doc.txt` a `prueba`", la acción correcta es `move_file` con el input `doc.txt|prueba`.
+
+        3.  **Verificación de Nombres:**
             -   Los nombres de archivos y carpetas deben ser **EXACTOS**.
             -   Si sospechas de un error tipográfico en el nombre de la carpeta de destino (ej. "prueva" en lugar de "prueba"), **DEBES** usar la herramienta `search_files` para buscar el nombre correcto antes de intentar mover nada.
             -   **NO CREES CARPETAS NUEVAS** a menos que el usuario lo pida explícitamente. Si la carpeta de destino no existe, informa al usuario.
