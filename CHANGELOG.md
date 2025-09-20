@@ -1,5 +1,4 @@
 # Historial de Cambios
-
 ## 20 de Septiembre de 2025 - Robustecimiento del Agente y Herramientas de Archivos
 
 ### 🐞 Problema Solucionado
@@ -31,6 +30,7 @@
 -   Se requiere la instalación de **Go** para ejecutar el servidor de Mangle.
 -   Se han añadido las dependencias de Python `grpcio` y `grpcio-tools`.
 -   Los archivos de la base de conocimiento (`.mgl`) se encuentran en el directorio `mangle_service/example`.
+
 
 
 ### Modificaciones y Mejoras
