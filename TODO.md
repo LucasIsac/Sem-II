@@ -8,10 +8,9 @@ Este documento contiene una lista de sugerencias para mejorar y ampliar las capa
 
 Estas son mejoras enfocadas en hacer el código existente más robusto, seguro y amigable para el usuario.
 
-### 1. Mejorar Manejo de Errores y Feedback al Usuario
-- **Problema:** Actualmente, si una herramienta falla, a menudo devuelve un mensaje de error técnico (por ejemplo, una excepción de Python). Esto puede ser confuso para un usuario no técnico.
-- **Sugerencia:** Refinar las funciones en `tools.py` para que capturen excepciones específicas y devuelvan mensajes más amigables. El agente podría ser instruido para ofrecer soluciones o alternativas cuando un error ocurre.
-  - *Ejemplo:* Si `rename_file` no encuentra un archivo, en lugar de solo decir "El archivo no existe", el agente podría responder: "No pude encontrar el archivo 'documento.txt'. ¿Quizás quisiste decir 'documento_final.txt'? Puedes pedirme que liste los archivos para ver los nombres correctos."
+### 1. Mejorar Manejo de Errores y Feedback al Usuario - ✅ ¡Completado!
+- **Problema:** Las herramientas devolvían errores técnicos y un formato de respuesta inconsistente (diccionarios).
+- **Solución:** Se han refactorizado todas las funciones en `tools.py` para que capturen excepciones específicas (`FileNotFoundError`, `PermissionError`, etc.) y devuelvan siempre un string con un mensaje claro y amigable para el usuario. El `agent.py` fue modificado para interpretar estos mensajes y determinar si la operación fue exitosa o no, permitiendo que la interfaz en `app.py` muestre los errores de forma adecuada.
 
 ### 2. Añadir Validación de Rutas y Seguridad
 - **Problema:** Las operaciones se ejecutan directamente en el sistema de archivos. Aunque están limitadas al directorio `files`, un comando mal interpretado por el LLM podría intentar acceder a rutas inesperadas (ej. `../`).

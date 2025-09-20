@@ -3,7 +3,7 @@ import streamlit as st
 import os
 import speech_recognition as sr
 from agent import process_command
-from tools import convert_pdf_to_word_cloudconvert, rename_file, rename_folder, convert_image_format, list_files, search_files
+from tools import get_file_structure, convert_pdf_to_word_cloudconvert, rename_file, rename_folder, convert_image_format, list_files, search_files
 from dotenv import load_dotenv
 
 from voice_handler import speak_response
@@ -124,7 +124,9 @@ def process_prompt(prompt, modo_voz):
 
     with st.chat_message("assistant", avatar="🗂️"):
         with st.spinner("🚀 Procesando tu solicitud..."):
-            response = process_command(prompt, st.session_state.chat_history, modo_voz)
+            # Generar el mapa de archivos antes de cada comando
+            file_structure = get_file_structure(WORKING_DIR)
+            response = process_command(prompt, st.session_state.chat_history, modo_voz, file_structure)
 
         if response["success"]:
             st.markdown(response["message"])

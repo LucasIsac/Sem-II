@@ -1,4 +1,37 @@
 # Historial de Cambios
+## 20 de Septiembre de 2025 - Robustecimiento del Agente y Herramientas de Archivos
+
+### 🐞 Problema Solucionado
+
+-   **Fallo de Lógica del Agente al Mover Archivos:** Se identificó un problema crítico donde el agente de IA no utilizaba el contexto de la estructura de archivos para localizar ficheros en subcarpetas. Esto causaba que comandos como "mover `doc.txt` a `prueba`" fallaran, ya que el agente no construía la ruta de origen completa.
+
+### 🛠️ Solución Implementada
+
+-   **Herramienta `move_file` Inteligente (`tools.py`):** Se rediseñó por completo la función `move_file`. Ahora, si la ruta inicial no se encuentra, la herramienta busca proactivamente el archivo en todo el árbol de directorios. Esta modificación traslada la lógica de búsqueda del LLM (que era propenso a errores) al código Python, garantizando un comportamiento fiable.
+-   **Simplificación del Prompt del Agente (`agent.py`):** Como consecuencia de la mejora en la herramienta, se simplificaron las complejas reglas de movimiento de archivos en el `system_prompt` del agente. El agente ahora puede operar de manera más directa, reduciendo la probabilidad de errores de razonamiento.
+
+### ✨ Resultado
+
+-   El asistente ahora puede mover archivos entre carpetas de forma fiable, incluso si se encuentran en subdirectorios profundos, sin necesidad de que el usuario especifique la ruta completa. La interacción es más natural y robusta.
+
+---
+
+## 20 de Septiembre de 2025 - Integración de Mangle para Razonamiento Deductivo
+
+### ✨ Nuevas Características
+
+-   **Integración con Mangle:** Se ha añadido una nueva capacidad de razonamiento deductivo al agente de IA mediante la integración del lenguaje de programación Mangle.
+-   **Servicio de Conocimiento gRPC:** Se ha configurado un microservicio local basado en Go que sirve una base de conocimiento de Mangle a través de gRPC.
+-   **Nueva Herramienta - `consultar_base_de_conocimiento`:** Se ha añadido una nueva herramienta en `tools.py` que permite al agente realizar consultas complejas a la base de conocimiento. El cliente gRPC en Python se encarga de la comunicación con el servicio de Mangle.
+-   **Agente Mejorado:** El agente principal en `agent.py` ha sido actualizado para utilizar esta nueva herramienta, permitiéndole responder a preguntas que requieren deducción y razonamiento sobre relaciones de datos.
+
+### 🔧 Configuración
+
+-   Se requiere la instalación de **Go** para ejecutar el servidor de Mangle.
+-   Se han añadido las dependencias de Python `grpcio` y `grpcio-tools`.
+-   Los archivos de la base de conocimiento (`.mgl`) se encuentran en el directorio `mangle_service/example`.
+
+
 
 ### Modificaciones y Mejoras
 
