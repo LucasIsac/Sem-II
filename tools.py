@@ -483,38 +483,29 @@ def create_zip_archive(source_list: str, zip_path: str = None, base_dir=WORKING_
     
     - source_list: string con rutas relativas separadas por coma. Ej: "pruebas/archivo1.txt, pruebas/archivo2.pdf"
     - zip_path: ruta de destino del archivo .zip (ej: "backups/mis_archivos.zip").
-                Si solo se pasa carpeta, se genera "Comprimido.zip".
-                Si ya existe, se generan versiones "Comprimido1.zip", "Comprimido2.zip", etc.
     """
-
     try:
         items = [s.strip() for s in source_list.split(",")]
 
-        # Si no se especifica zip_path, crear por defecto en base_dir
-        if not zip_path:
-            zip_path = "Comprimido.zip"
+        # Si no se proporciona un nombre para el zip, se devuelve un error claro.
+        if not zip_path or zip_path.isspace():
+            return "Error: Debes proporcionar un nombre para el archivo ZIP."
 
-        # Si el usuario pasó solo una carpeta como destino → usar Comprimido.zip
-        if os.path.isdir(os.path.join(base_dir, zip_path)):
-            zip_path = os.path.join(zip_path, "Comprimido.zip")
-
-        # Si no termina en .zip, agregar extensión
+        # Si el nombre del zip no termina en .zip, se añade la extensión.
         if not zip_path.endswith(".zip"):
             zip_path += ".zip"
 
-        # Ruta completa
-        zip_full = os.path.join(base_dir, zip_path)
-        os.makedirs(os.path.dirname(zip_full), exist_ok=True)
+        zip_full_path = os.path.join(base_dir, zip_path)
 
-        # Si ya existe, generar un nombre nuevo
-        base_name, ext = os.path.splitext(zip_full)
-        counter = 1
-        while os.path.exists(zip_full):
-            zip_full = f"{base_name}{counter}{ext}"
-            counter += 1
+        # Si el archivo ya existe, se informa al usuario en lugar de crear copias.
+        if os.path.exists(zip_full_path):
+            return f"Error: El archivo '{zip_path}' ya existe. Por favor, elige otro nombre."
+
+        # Asegurarse de que el directorio de destino exista.
+        os.makedirs(os.path.dirname(zip_full_path), exist_ok=True)
 
         # Crear el ZIP
-        with zipfile.ZipFile(zip_full, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_full_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
             for item in items:
                 path = os.path.join(base_dir, item)
                 if not os.path.exists(path):
@@ -530,7 +521,7 @@ def create_zip_archive(source_list: str, zip_path: str = None, base_dir=WORKING_
                     arcname = os.path.basename(path)  # Solo nombre del archivo
                     zf.write(path, arcname)
 
-        return f"Archivo ZIP creado en: {zip_full}"
+        return f"Archivo ZIP '{zip_path}' creado con éxito."
 
     except Exception as e:
         return f"Ocurrió un error al crear ZIP: {str(e)}"
