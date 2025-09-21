@@ -1,0 +1,14 @@
+# Hechos sobre personas y proyectos
+contacto("Juan", "juan@email.com").
+contacto("Ana", "ana@email.com").
+es_colega("Juan", "Ana").
+trabaja_en("Juan", "Proyecto Secreto").
+trabaja_en("Ana", "Proyecto General").
+
+# Hechos sobre tareas
+tarea_urgente("Proyecto Secreto", "Revisar presupuesto").
+
+# Regla para deducir contactos prioritarios
+contacto_prioritario(Persona) :- 
+  trabaja_en(Persona, Proyecto), 
+  tarea_urgente(Proyecto, _).
