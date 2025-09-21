@@ -8,7 +8,6 @@ import glob
 from datetime import datetime
 from elevenlabs import ElevenLabs
 from playsound import playsound
-import os
 from dotenv import load_dotenv
 import requests
 import cloudconvert
@@ -625,6 +624,7 @@ def rename_files_batch(folder: str, pattern: str, prefix: str = "", suffix: str 
     return f"Renombrados {len(files)} archivos en {folder}"
 
 def convert_images_batch(folder: str, source_ext: str = ".jpg", target_ext: str = ".png"):
+
     """
     Convierte imágenes en lote de un formato a otro.
     
@@ -646,27 +646,27 @@ def convert_images_batch(folder: str, source_ext: str = ".jpg", target_ext: str 
 
     return f"Convertidas {len(files)} imágenes de {source_ext} a {target_ext} en {folder}"
 
+def actualizar_base_de_conocimiento(program: str):
+    with grpc.insecure_channel("localhost:8080") as channel:
+        stub = mangle_pb2_grpc.MangleStub(channel)
+        req = mangle_pb2.UpdateRequest(program=program)
+        response = stub.Update(req)
+        return response.updated_predicates
 
-    """
-    Descarga un archivo desde una URL y lo guarda en el directorio indicado.
-    """
-    try:
-        # Resolver ruta absoluta
-        if not os.path.isabs(save_path):
-            save_path = os.path.join(base_dir, save_path)
+def indexar_carpeta_en_mangle(path: str):
+    hechos = []
 
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    # os.walk recorre la carpeta de manera recursiva
+    for root, dirs, files in os.walk(path):
+        carpeta_actual = os.path.relpath(root, path)  # ruta relativa desde la raíz de prueba
+        hechos.append(f'carpeta("{carpeta_actual}", "{root}").')  # hecho de la carpeta actual
 
-        # Agregar cabecera para simular navegador
-        headers = {"User-Agent": "Mozilla/5.0"}
+        # Archivos en la carpeta actual
+        for archivo in files:
+            extension = archivo.split(".")[-1] if "." in archivo else "desconocido"
+            hechos.append(f'archivo("{archivo}").')
+            hechos.append(f'tipo("{archivo}", "{extension}").')
+            hechos.append(f'carpeta_archivo("{archivo}", "{carpeta_actual}").')
 
-        response = requests.get(url, headers=headers, stream=True)
-        response.raise_for_status()
-
-        with open(save_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-
-        return f"Archivo descargado y guardado en: {save_path}"
-    except Exception as e:
-        return f"Ocurrió un error al descargar el archivo: {str(e)}"
+    program = "\n".join(hechos)
+    actualizar_base_de_conocimiento(program)

@@ -1,4 +1,21 @@
 # Historial de Cambios
+## 21 de Septiembre de 2025 - Optimización de Rendimiento y Corrección del Repositorio
+
+### ✨ Nuevas Características y Mejoras
+
+-   **Implementación de Caché de Archivos (`app.py`, `agent.py`):** Se ha introducido un sistema de caché inteligente para la estructura de archivos.
+    -   La aplicación ahora solo escanea el directorio de trabajo una vez al inicio o cuando se produce un cambio real en los archivos (crear, renombrar, eliminar, etc.).
+    -   Esto resulta en una mejora significativa del rendimiento, ya que las operaciones de solo lectura (como buscar archivos) son ahora instantáneas y no requieren un escaneo del disco.
+    -   Se ha añadido un botón "Refrescar vista de archivos" en la interfaz para actualizar manualmente el caché si se realizan cambios externos.
+
+### 🐞 Problema Solucionado
+
+-   **Corrección de Repositorio Git Anidado:** Se solucionó un problema crítico que causaba que la carpeta `mangle_service` apareciera como un "submódulo sucio" en GitHub, impidiendo ver su contenido.
+    -   Se eliminó el repositorio `.git` anidado dentro de `mangle_service`.
+    -   Se corrigió el índice de Git para que el repositorio principal (`Sem-II`) ahora rastree correctamente todos los archivos del microservicio.
+
+---
+
 ## 20 de Septiembre de 2025 - Robustecimiento del Agente y Herramientas de Archivos
 
 ### 🐞 Problema Solucionado

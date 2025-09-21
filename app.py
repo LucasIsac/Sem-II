@@ -64,6 +64,11 @@ with st.sidebar:
     with st.container():
         st.subheader("📁 Archivos de Trabajo")
 
+        if st.button("🔄 Refrescar vista de archivos"):
+            if 'file_structure' in st.session_state:
+                del st.session_state['file_structure']
+            st.rerun()
+
         def display_files(directory, level=0):
             items = list_files(directory)
             for item in items:
@@ -91,6 +96,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+if 'file_structure' not in st.session_state:
+    st.session_state.file_structure = None
 # Se remueve la línea de transcriber porque se hará directo
 # if "transcriber" not in st.session_state:
 #    st.session_state.transcriber = Transcriber()
@@ -115,6 +122,13 @@ for message in st.session_state.messages:
             with st.expander("▶️ Escuchar audio"):
                 st.audio(message["audio_path"], format="audio/mp3", autoplay=True)
 
+# ----------------- FUNCIÓN PARA OBTENER ESTRUCTURA DE ARCHIVOS (CON CACHÉ) -----------------
+def get_cached_file_structure():
+    if st.session_state.file_structure is None:
+        with st.spinner("Actualizando vista de archivos..."):
+            st.session_state.file_structure = get_file_structure(WORKING_DIR)
+    return st.session_state.file_structure
+
 # ----------------- FUNCIÓN PARA PROCESAR EL PROMPT -----------------
 def process_prompt(prompt, modo_voz):
     st.session_state.messages.append({"role": "user", "content": prompt, "avatar": "😃"})
@@ -124,9 +138,12 @@ def process_prompt(prompt, modo_voz):
 
     with st.chat_message("assistant", avatar="🗂️"):
         with st.spinner("🚀 Procesando tu solicitud..."):
-            # Generar el mapa de archivos antes de cada comando
-            file_structure = get_file_structure(WORKING_DIR)
+            # Obtener la estructura de archivos (usando el caché)
+            file_structure = get_cached_file_structure()
             response = process_command(prompt, st.session_state.chat_history, modo_voz, file_structure)
+
+        if response.get("files_changed", False):
+            st.session_state.file_structure = None # Invalidar caché
 
         if response["success"]:
             st.markdown(response["message"])
