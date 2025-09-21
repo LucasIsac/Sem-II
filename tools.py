@@ -22,6 +22,7 @@ import mangle_pb2_grpc
 import re
 import zipfile
 from shutil import make_archive
+from PIL import Image
 
 # Cargar la API key de CloudConvert
 load_dotenv()
@@ -454,7 +455,6 @@ def read_file_content(file_path):
     except Exception as e:
         return f"Ocurrió un error al leer '{file_path}': {str(e)}"
 
-
 def search_in_file(file_path, query):
     """Busca una palabra o frase en un archivo y devuelve las líneas donde aparece."""
     try:
@@ -526,7 +526,6 @@ def create_zip_archive(source_list: str, zip_path: str = None, base_dir=WORKING_
     except Exception as e:
         return f"Ocurrió un error al crear ZIP: {str(e)}"
 
-
 def extract_zip_archive(zip_path: str, destination_folder: str, base_dir=WORKING_DIR):
     """
     Extrae un archivo ZIP dentro del directorio de trabajo.
@@ -546,7 +545,6 @@ def extract_zip_archive(zip_path: str, destination_folder: str, base_dir=WORKING
         return f"Contenido de '{zip_path}' extraído correctamente en carpeta '{destination_folder}'."
     except Exception as e:
         return f"Ocurrió un error al extraer ZIP: {str(e)}"
-
 
 def get_file_structure(directory):
     """
@@ -578,3 +576,97 @@ def get_file_structure(directory):
             tree.append(f"{sub_indent}📄 {f}")
             
     return "\n".join(tree)
+
+def move_files_batch(source_folder: str, dest_folder: str, pattern: str = "*"):
+    """
+    Mueve archivos de una carpeta a otra según un patrón.
+    
+    - source_folder: carpeta origen relativa a WORKING_DIR
+    - dest_folder: carpeta destino relativa a WORKING_DIR
+    - pattern: patrón para filtrar archivos (ej: "*.pdf", "IMG_*")
+    """
+    base_dir = WORKING_DIR
+    src_path = os.path.join(base_dir, source_folder)
+    dst_path = os.path.join(base_dir, dest_folder)
+    os.makedirs(dst_path, exist_ok=True)
+
+    files = glob.glob(os.path.join(src_path, pattern))
+    if not files:
+        return f"No se encontraron archivos en {src_path} que coincidan con {pattern}"
+
+    for f in files:
+        shutil.move(f, dst_path)
+
+    return f"Movidos {len(files)} archivos de {source_folder} a {dest_folder}"
+
+def rename_files_batch(folder: str, pattern: str, prefix: str = "", suffix: str = ""):
+    """
+    Renombra archivos en lote según patrón, agregando prefijo o sufijo.
+    
+    - folder: carpeta relativa a WORKING_DIR
+    - pattern: patrón de archivos a renombrar (ej: "IMG_*")
+    - prefix: texto a agregar al inicio del nombre
+    - suffix: texto a agregar al final del nombre antes de la extensión
+    """
+    base_dir = WORKING_DIR
+    path = os.path.join(base_dir, folder)
+    files = glob.glob(os.path.join(path, pattern))
+
+    if not files:
+        return f"No se encontraron archivos en {folder} que coincidan con {pattern}"
+
+    for f in files:
+        dir_name, file_name = os.path.split(f)
+        name, ext = os.path.splitext(file_name)
+        new_name = f"{prefix}{name}{suffix}{ext}"
+        new_path = os.path.join(dir_name, new_name)
+        os.rename(f, new_path)
+
+    return f"Renombrados {len(files)} archivos en {folder}"
+
+def convert_images_batch(folder: str, source_ext: str = ".jpg", target_ext: str = ".png"):
+    """
+    Convierte imágenes en lote de un formato a otro.
+    
+    - folder: carpeta relativa a WORKING_DIR
+    - source_ext: extensión de origen (ej: ".jpg")
+    - target_ext: extensión de destino (ej: ".png")
+    """
+    base_dir = WORKING_DIR
+    path = os.path.join(base_dir, folder)
+    files = glob.glob(os.path.join(path, f"*{source_ext}"))
+
+    if not files:
+        return f"No se encontraron archivos {source_ext} en {folder}"
+
+    for f in files:
+        img = Image.open(f)
+        new_name = os.path.splitext(f)[0] + target_ext
+        img.save(new_name)
+
+    return f"Convertidas {len(files)} imágenes de {source_ext} a {target_ext} en {folder}"
+
+
+    """
+    Descarga un archivo desde una URL y lo guarda en el directorio indicado.
+    """
+    try:
+        # Resolver ruta absoluta
+        if not os.path.isabs(save_path):
+            save_path = os.path.join(base_dir, save_path)
+
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+        # Agregar cabecera para simular navegador
+        headers = {"User-Agent": "Mozilla/5.0"}
+
+        response = requests.get(url, headers=headers, stream=True)
+        response.raise_for_status()
+
+        with open(save_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        return f"Archivo descargado y guardado en: {save_path}"
+    except Exception as e:
+        return f"Ocurrió un error al descargar el archivo: {str(e)}"

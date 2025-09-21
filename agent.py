@@ -1,5 +1,4 @@
 # agent.py
-
 import os
 from langchain.agents import Tool, initialize_agent, AgentType
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -7,7 +6,7 @@ from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, H
 from dotenv import load_dotenv
 from langchain.memory import ConversationBufferMemory
 from tts import TTS
-from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local,  get_datetime, create_folder, delete_file, delete_folder, move_file, move_folder, create_backup, convert_word_to_pdf, read_file_content, search_in_file, consultar_base_de_conocimiento, create_zip_archive, extract_zip_archive
+from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local,  get_datetime, create_folder, delete_file, delete_folder, move_file, move_folder, create_backup, convert_word_to_pdf, read_file_content, search_in_file, consultar_base_de_conocimiento, create_zip_archive, extract_zip_archive, move_files_batch, rename_files_batch, convert_images_batch
 
 
 
@@ -115,8 +114,22 @@ tools = [
         name="extract_zip_archive",
         func=lambda x: extract_zip_archive(*x.split("|")),
         description="Útil para descomprimir un archivo ZIP. Indicá el nombre del ZIP y la carpeta donde querés extraerlo."
+    ),
+    Tool(
+        name="move_files_batch",
+        func=lambda x: move_files_batch(*x.split("|")),
+        description="Útil para mover múltiples archivos a una carpeta. Formato: 'archivo1,archivo2,...|carpeta_destino'."
+    ),
+    Tool(
+        name="rename_files_batch",
+        func=lambda x: rename_files_batch(*x.split("|")),
+        description="Útil para renombrar múltiples archivos siguiendo un patrón. Formato: 'archivo1,archivo2,...|nuevo_nombre_base'. Los archivos serán renombrados como nuevo_nombre_base_1, nuevo_nombre_base_2, etc."
+    ),
+    Tool(
+        name="convert_images_batch",
+        func=lambda x: convert_images_batch(*x.split("|")),
+        description="Útil para convertir múltiples imágenes a otro formato. Formato: 'imagen1,imagen2,...|nuevo_formato'."
     )
-
 ]
 
 def initialize_llm():
