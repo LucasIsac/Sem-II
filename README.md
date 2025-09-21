@@ -73,6 +73,32 @@ Para poner en marcha el proyecto, sigue estos pasos:
         -   "Convierte `informe.pdf` a Word"
         -   "Cambia el formato de `logo.jpg` a `png`"
 
+## Componentes Adicionales: Microservicio Mangle (Go)
+
+El proyecto incluye un microservicio de alto rendimiento construido en Go que sirve una base de conocimiento utilizando el lenguaje deductivo Mangle. Este servicio es necesario para que funcionen las herramientas de consulta a la base de conocimiento.
+
+### Requisitos Previos
+
+-   Tener [Go (Golang)](https://go.dev/doc/install) instalado en tu sistema.
+
+### Ejecución del Microservicio
+
+1.  **Abre una nueva terminal** en la raíz del proyecto (no uses la misma donde corre Streamlit).
+
+2.  **Navega al directorio del servidor:**
+    ```bash
+    cd mangle_service/server
+    ```
+
+3.  **Ejecuta el servidor:**
+    ```bash
+    go run main.go --db=../example/knowledge_base.mgl --source=../example/demo.mg
+    ```
+
+4.  El servidor se iniciará y comenzará a escuchar peticiones en el puerto `8080`. Déjalo corriendo en segundo plano mientras usas la aplicación principal.
+
+---
+
 ## Tecnologías Utilizadas
 
 -   **Lenguaje de Programación**:

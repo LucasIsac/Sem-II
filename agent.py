@@ -1,13 +1,15 @@
 # agent.py
-
 import os
+import grpc
+import mangle_pb2
+import mangle_pb2_grpc
 from langchain.agents import Tool, initialize_agent, AgentType
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder
 from dotenv import load_dotenv
 from langchain.memory import ConversationBufferMemory
 from tts import TTS
-from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local,  get_datetime, create_folder, delete_file, delete_folder, move_file, move_folder, create_backup, convert_word_to_pdf, read_file_content, search_in_file, consultar_base_de_conocimiento, create_zip_archive, extract_zip_archive
+from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local,  get_datetime, create_folder, delete_file, delete_folder, move_file, move_folder, create_backup, convert_word_to_pdf, read_file_content, search_in_file, consultar_base_de_conocimiento, create_zip_archive, extract_zip_archive, move_files_batch, rename_files_batch, convert_images_batch, actualizar_base_de_conocimiento, indexar_carpeta_en_mangle
 
 
 
@@ -115,8 +117,32 @@ tools = [
         name="extract_zip_archive",
         func=lambda x: extract_zip_archive(*x.split("|")),
         description="Útil para descomprimir un archivo ZIP. Indicá el nombre del ZIP y la carpeta donde querés extraerlo."
+    ),
+    Tool(
+        name="move_files_batch",
+        func=lambda x: move_files_batch(*x.split("|")),
+        description="Útil para mover múltiples archivos a una carpeta. Formato: 'archivo1,archivo2,...|carpeta_destino'."
+    ),
+    Tool(
+        name="rename_files_batch",
+        func=lambda x: rename_files_batch(*x.split("|")),
+        description="Útil para renombrar múltiples archivos siguiendo un patrón. Formato: 'archivo1,archivo2,...|nuevo_nombre_base'. Los archivos serán renombrados como nuevo_nombre_base_1, nuevo_nombre_base_2, etc."
+    ),
+    Tool(
+        name="convert_images_batch",
+        func=lambda x: convert_images_batch(*x.split("|")),
+        description="Útil para convertir múltiples imágenes a otro formato. Formato: 'imagen1,imagen2,...|nuevo_formato'."
+    ),
+    Tool(
+        name="actualizar_base_de_conocimiento",
+        func=actualizar_base_de_conocimiento,
+        description="Útil para actualizar o agregar información a la base de conocimiento. La entrada debe ser el hecho o información a agregar en formato Mangle, por ejemplo: 'contacto_prioritario(juan).'"
+    ),
+    Tool(
+        name="indexar_carpeta_en_mangle",
+        func=lambda x: indexar_carpeta_en_mangle(x),
+        description="Útil para indexar todos los archivos de una carpeta en la base de conocimiento Mangle. La entrada debe ser el nombre de la carpeta a indexar."
     )
-
 ]
 
 def initialize_llm():
@@ -194,6 +220,23 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
         # basado en el contenido del string que devuelven las herramientas.
         is_success = not respuesta.lower().startswith(("error", "no pude", "no se pudo"))
 
+        # Determinar si la operación modificó el sistema de archivos
+        modifying_tools = [
+            "rename_file", "rename_folder", "convert_pdf_to_word_cloudconvert", 
+            "convert_image_format", "convert_pdf_to_word_local", "create_folder", 
+            "delete_file", "delete_folder", "move_file", "move_folder", 
+            "create_backup", "convert_word_to_pdf", "create_zip_archive", 
+            "extract_zip_archive", "move_files_batch", "rename_files_batch", 
+            "convert_images_batch"
+        ]
+        
+        # Extraer la herramienta utilizada de la traza del agente si está disponible
+        tool_used = ""
+        if "intermediate_steps" in result and result["intermediate_steps"]:
+            tool_used = result["intermediate_steps"][0][0].tool
+
+        files_changed = is_success and tool_used in modifying_tools
+
         audio_path = None
         if modo_voz == "Voz y texto" and is_success:
             try:
@@ -207,9 +250,10 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
             "success": is_success,
             "message": respuesta,
             "memory": memory.load_memory_variables({}),
-            "audio_path": audio_path
+            "audio_path": audio_path,
+            "files_changed": files_changed
         }
 
     except Exception as e:
         error_message = f"Oops, ocurrió un error general al procesar tu comando. Error: {str(e)}. ¿Podrías intentarlo de nuevo de otra manera?"
-        return {"success": False, "message": error_message}
+        return {"success": False, "message": error_message, "files_changed": False}
