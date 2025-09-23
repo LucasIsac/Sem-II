@@ -1,22 +1,43 @@
-# agent.py - Agente extendido con memoria de contexto de carpeta
+# agent.py - Agente extendido con memoria de contexto de carpeta (CORREGIDO)
 import os
+import grpc
+import mangle_pb2
+import mangle_pb2_grpc
 from langchain.agents import Tool, initialize_agent, AgentType
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder
 from dotenv import load_dotenv
 from langchain.memory import ConversationBufferMemory
 from tts import TTS
-
-# Importar las herramientas modificadas
 from tools import (
-    rename_file, rename_folder, convert_image_format, search_files,
+    rename_file, rename_folder, convert_image_format, search_files, 
     convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local, 
     create_folder, delete_file, delete_folder, move_file, move_folder, 
-    create_backup, convert_word_to_pdf, system_manager, list_files
+    create_backup, convert_word_to_pdf, read_file_content, search_in_file, 
+    create_zip_archive, extract_zip_archive, move_files_batch, rename_files_batch, system_manager,
+    list_files,
+    convert_images_batch,
+    # FUNCIONES MANGLE BÁSICAS:
+    consultar_base_de_conocimiento, agregar_contacto, 
+    cargar_todos_los_contactos_desde_archivo, cargar_conocimiento_desde_archivo,
+    inicializar_base_conocimiento_completa, limpiar_base_de_conocimiento,
+    buscar_contactos_por_proyecto, buscar_contactos_prioritarios, 
+    listar_todos_los_proyectos,
+    # NUEVAS FUNCIONES DE MÉTRICAS:
+    agregar_metricas_proyecto, asignar_horas_persona_proyecto,
+    registrar_progreso_proyecto, calcular_metricas_proyecto,
+    detectar_proyectos_en_riesgo, calcular_carga_trabajo_equipo,
+    generar_dashboard_metricas, buscar_proyectos_por_estado,
+    buscar_equipo_proyecto
 )
+from schemas import ContactoInput
 
-# Importar dashboard del sistema
-from system_dashboard import get_system_dashboard_response
+# Importar dashboard del sistema (asegúrate de que existe)
+try:
+    from system_dashboard import get_system_dashboard_response
+except ImportError:
+    def get_system_dashboard_response():
+        return "Dashboard del sistema no disponible - falta instalar dependencias."
 
 load_dotenv()
 
@@ -112,10 +133,10 @@ def move_folder_with_context(params):
 
 # Definir las herramientas disponibles con contexto
 tools = [
-    # Herramientas de archivos y carpetas CON CONTEXTO
+    # ===== HERRAMIENTAS DE CONTEXTO DE CARPETA =====
     Tool(
         name="get_current_directory",
-        func=get_current_directory,
+        func=lambda x: get_current_directory(),
         description="Muestra el directorio de trabajo actual. Sin parámetros."
     ),
     Tool(
@@ -123,6 +144,8 @@ tools = [
         func=set_current_directory,
         description="Cambia el directorio de trabajo actual. Parámetro: nueva_ruta"
     ),
+    
+    # ===== HERRAMIENTAS DE ARCHIVOS CON CONTEXTO =====
     Tool(
         name="list_files",
         func=list_files_with_context,
@@ -164,16 +187,11 @@ tools = [
         description="Mueve una carpeta desde el directorio actual. Formato: carpeta|carpeta_destino"
     ),
     
-    # Herramientas que no requieren contexto específico
+    # ===== HERRAMIENTAS DE CONVERSIÓN Y PROCESAMIENTO =====
     Tool(
         name="convert_image_format",
         func=lambda x: convert_image_format(*x.split("|")),
         description="Convierte una imagen a otro formato. Formato: ruta_imagen|nuevo_formato"
-    ),
-    Tool(
-        name="search_files",
-        func=search_files,
-        description="Busca archivos en la carpeta actual. Parámetro: patrón de búsqueda"
     ),
     Tool(
         name="convert_pdf_to_word_cloudconvert",
@@ -183,18 +201,71 @@ tools = [
     Tool(
         name="convert_pdf_to_word_local",
         func=lambda x: convert_pdf_to_word_local(x),
-        description="Convierte un PDF a Word localmente. Parámetro: ruta del PDF."
-    ),
-    Tool(
-        name="create_backup",
-        func=create_backup,
-        description="Crea un backup de un archivo o carpeta. Parámetro: ruta del archivo o carpeta."
+        description="Convierte un PDF a Word localmente. Úsalo como alternativa si la conversión con CloudConvert falla."
     ),
     Tool(
         name="convert_word_to_pdf",
-        func=convert_word_to_pdf,
+        func=lambda x: convert_word_to_pdf(x),
         description="Convierte un archivo de Word (.docx) a PDF. Parámetro: ruta del archivo Word."
     ),
+    Tool(
+        name="convert_images_batch",
+        func=lambda x: convert_images_batch(*x.split("|")),
+        description="Convierte múltiples imágenes a otro formato. Formato: 'imagen1,imagen2,...|nuevo_formato'."
+    ),
+    
+    # ===== HERRAMIENTAS DE BÚSQUEDA =====
+    Tool(
+        name="search_files",
+        func=search_files,
+        description="Busca archivos en la carpeta actual. Parámetro: patrón de búsqueda"
+    ),
+    Tool(
+        name="search_files_smart",
+        func=lambda x: system_manager.search_files_smart(*x.split("|") if "|" in x else (x, None)),
+        description="Busca archivos en todo el sistema. Formato: patrón|ruta_opcional."
+    ),
+    Tool(
+        name="search_in_file",
+        func=lambda x: search_in_file(x.split("|")[1], x.split("|")[0]),
+        description="Busca palabras o frases dentro de un archivo. Formato: palabra|archivo."
+    ),
+    
+    # ===== HERRAMIENTAS DE ARCHIVOS Y COMPRESIÓN =====
+    Tool(
+        name="read_file_content",
+        func=read_file_content,
+        description="Lee y obtiene el contenido de un archivo. Funciona con texto, código, PDFs o Word."
+    ),
+    Tool(
+        name="create_backup",
+        func=lambda x: create_backup(x),
+        description="Crea un backup de un archivo o carpeta. Parámetro: nombre del archivo o carpeta."
+    ),
+    Tool(
+        name="create_zip_archive",
+        func=lambda x: create_zip_archive(*x.split("|")),
+        description="Comprime archivos o carpetas en un ZIP. Formato: archivos_a_comprimir|nombre_zip"
+    ),
+    Tool(
+        name="extract_zip_archive",
+        func=lambda x: extract_zip_archive(*x.split("|")),
+        description="Descomprime un archivo ZIP. Formato: archivo_zip|carpeta_destino"
+    ),
+    
+    # ===== HERRAMIENTAS BATCH =====
+    Tool(
+        name="move_files_batch",
+        func=lambda x: move_files_batch(*x.split("|")),
+        description="Mueve múltiples archivos a una carpeta. Formato: 'archivo1,archivo2,...|carpeta_destino'."
+    ),
+    Tool(
+        name="rename_files_batch",
+        func=lambda x: rename_files_batch(*x.split("|")),
+        description="Renombra múltiples archivos siguiendo un patrón. Formato: 'archivo1,archivo2,...|nuevo_nombre_base'."
+    ),
+    
+    # ===== HERRAMIENTAS DEL SISTEMA =====
     Tool(
         name="get_system_resources",
         func=lambda x: system_manager.get_system_resources(),
@@ -203,28 +274,112 @@ tools = [
     Tool(
         name="show_system_dashboard", 
         func=lambda x: get_system_dashboard_response(),
-        description="Muestra un dashboard completo con gráficos y recomendaciones del sistema. Usar cuando el usuario pida ver el estado detallado de recursos, rendimiento o dashboard del sistema."
+        description="Muestra un dashboard completo con gráficos y recomendaciones del sistema. Usar cuando el usuario pida ver el estado detallado de recursos."
     ),
     Tool(
         name="open_program",
-        func=system_manager.open_program,
+        func=lambda x: system_manager.open_program(x),
         description="Abre un programa en el sistema operativo. Parámetro: nombre_del_programa."
     ),
     Tool(
-        name="search_files_smart",
-        func=lambda x: system_manager.search_files_smart(*x.split("|") if "|" in x else (x, None)),
-        description="Busca archivos en todo el sistema. Formato: patrón|ruta_opcional."
+        name="get_running_processes",
+        func=lambda x: system_manager.get_running_processes(),
+        description="Muestra la lista de procesos en ejecución ordenados por uso de memoria. Sin parámetros."
+    ),
+    
+    # ===== HERRAMIENTAS MANGLE - CONTACTOS =====
+    Tool(
+        name="consultar_base_de_conocimiento",
+        func=consultar_base_de_conocimiento,
+        description="Realiza consultas a la base de conocimiento Mangle. Entrada: consulta Mangle válida."
     ),
     Tool(
-        name="get_running_processes",
-        func=system_manager.get_running_processes,
-        description="Muestra la lista de procesos en ejecución ordenados por uso de memoria. Sin parámetros."
+        name="agregar_contacto",
+        func=agregar_contacto,
+        description="Agrega un nuevo contacto. Formato: 'nombre, puesto, email, proyecto[, archivo_opcional]'"
+    ),
+    Tool(
+        name="cargar_todos_los_contactos_desde_archivo",
+        func=cargar_todos_los_contactos_desde_archivo,
+        description="Carga TODOS los contactos desde archivo a la base de conocimiento. Entrada opcional: nombre del archivo."
+    ),
+    Tool(
+        name="cargar_conocimiento_desde_archivo",
+        func=cargar_conocimiento_desde_archivo,
+        description="Carga reglas base desde un archivo .mgl. Entrada: ruta al archivo .mgl"
+    ),
+    Tool(
+        name="inicializar_base_conocimiento_completa",
+        func=lambda x: inicializar_base_conocimiento_completa(),
+        description="Inicializa completamente la base de conocimiento Mangle (reglas + contactos)."
+    ),
+    Tool(
+        name="limpiar_base_de_conocimiento",
+        func=limpiar_base_de_conocimiento,
+        description="Limpia completamente la base de conocimiento. ¡CUIDADO! Operación irreversible."
+    ),
+    Tool(
+        name="buscar_contactos_por_proyecto",
+        func=buscar_contactos_por_proyecto,
+        description="Busca todos los contactos que trabajan en un proyecto específico. Entrada: nombre del proyecto"
+    ),
+    Tool(
+        name="buscar_contactos_prioritarios", 
+        func=lambda x: buscar_contactos_prioritarios(),
+        description="Encuentra contactos prioritarios basado en reglas de negocio. No requiere entrada."
+    ),
+    Tool(
+        name="listar_todos_los_proyectos",
+        func=lambda x: listar_todos_los_proyectos(),
+        description="Lista todos los proyectos únicos en la base de conocimiento. No requiere entrada."
+    ),
+    
+    # ===== HERRAMIENTAS MANGLE - MÉTRICAS Y GESTIÓN DE PROYECTOS =====
+    Tool(
+        name="agregar_metricas_proyecto",
+        func=agregar_metricas_proyecto,
+        description="Configura métricas de proyecto. Formato: 'proyecto, estado, fecha_inicio, fecha_fin, presupuesto, prioridad, horas_estimadas'"
+    ),
+    Tool(
+        name="asignar_horas_persona_proyecto",
+        func=asignar_horas_persona_proyecto,
+        description="Asigna persona a proyecto con métricas. Formato: 'persona, proyecto, horas_semanales, porcentaje_dedicacion, rol_en_proyecto'"
+    ),
+    Tool(
+        name="registrar_progreso_proyecto",
+        func=registrar_progreso_proyecto,
+        description="Actualiza progreso de proyecto. Formato: 'proyecto, porcentaje_completado, horas_trabajadas[, fecha_reporte]'"
+    ),
+    Tool(
+        name="calcular_metricas_proyecto",
+        func=calcular_metricas_proyecto,
+        description="Genera reporte completo de métricas para un proyecto específico. Entrada: nombre del proyecto"
+    ),
+    Tool(
+        name="generar_dashboard_metricas",
+        func=lambda x: generar_dashboard_metricas(),
+        description="Genera dashboard completo con métricas del equipo y proyectos. No requiere entrada."
+    ),
+    Tool(
+        name="detectar_proyectos_en_riesgo",
+        func=lambda x: detectar_proyectos_en_riesgo(),
+        description="Identifica proyectos en riesgo basado en progreso y fechas. No requiere entrada."
+    ),
+    Tool(
+        name="buscar_proyectos_por_estado",
+        func=buscar_proyectos_por_estado,
+        description="Busca proyectos por estado específico. Entrada: estado (ej: 'activo', 'completado', 'pausado')"
+    ),
+    Tool(
+        name="buscar_equipo_proyecto",
+        func=buscar_equipo_proyecto,
+        description="Muestra equipo asignado a un proyecto específico. Entrada: nombre del proyecto"
     )
 ]
 
 def initialize_llm():
     return ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash-latest",
+        model="gemini-2.5-flash",
         google_api_key=GEMINI_API_KEY,
         temperature=0.7,
         max_output_tokens=512
@@ -247,8 +402,8 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
                 else:
                     memory.chat_memory.add_ai_message(message['content'])
 
-        # Prompt actualizado con información de contexto
-        system_prompt = f"""Eres FileMate AI, un asistente de gestión de archivos y sistema. Tu función es interpretar las instrucciones del usuario y ejecutar las herramientas correspondientes.
+        # Prompt del sistema unificado
+        system_prompt = f"""Eres FileMate AI, un asistente integral de gestión de archivos, sistema y proyectos. Tu función es interpretar las instrucciones del usuario y ejecutar las herramientas correspondientes.
 
 **CONTEXTO ACTUAL:**
 - Directorio de trabajo actual: {current_working_directory}
@@ -260,7 +415,7 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
 - Usa `get_current_directory` para verificar dónde estás trabajando
 - Si necesitas cambiar explícitamente de directorio, usa `set_current_directory`
 
-**PARA MANEJAR ARCHIVOS (RENOMBRAR, MOVER, BORRAR, ETC.):**
+**PARA MANEJAR ARCHIVOS:**
 - SIEMPRE trabaja en el directorio actual a menos que el usuario especifique otro
 - Si el usuario no proporciona una ruta completa, asume que se refiere a archivos en el directorio actual
 - Para búsquedas globales usa `search_files_smart`, para búsquedas locales usa `search_files`
@@ -272,16 +427,22 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
 - No vuelvas al directorio por defecto a menos que el usuario lo pida explícitamente
 
 **MONITOREO DEL SISTEMA:**
-- Cuando el usuario pida información sobre recursos, rendimiento, estado del sistema, o un "dashboard", usa `show_system_dashboard`
+- Para información detallada de recursos usa `show_system_dashboard`
 - Para consultas simples sobre recursos usa `get_system_resources`
-- Ejemplos de cuándo usar dashboard: "cómo están los recursos", "muestra el dashboard", "estado del sistema", "rendimiento de la PC"
+- Ejemplos: "cómo están los recursos", "muestra el dashboard", "estado del sistema"
 
-**NUEVAS CAPACIDADES DEL SISTEMA:**
-- Dashboard visual de recursos → Usa show_system_dashboard  
-- Monitoreo básico de recursos → Usa get_system_resources
-- Apertura de programas y aplicaciones → Usa open_program
-- Búsqueda en todo el sistema de archivos → Usa search_files_smart
-- Gestión de procesos en ejecución → Usa get_running_processes
+**GESTIÓN DE PROYECTOS MANGLE:**
+- Para contactos usa herramientas como `agregar_contacto`, `buscar_contactos_por_proyecto`
+- Para métricas usa `agregar_metricas_proyecto`, `calcular_metricas_proyecto`, `generar_dashboard_metricas`
+- Para proyectos usa `buscar_proyectos_por_estado`, `detectar_proyectos_en_riesgo`
+
+**CAPACIDADES PRINCIPALES:**
+- Gestión completa de archivos y carpetas con memoria de contexto
+- Conversión de documentos e imágenes
+- Monitoreo y control del sistema operativo
+- Gestión de proyectos y contactos con Mangle
+- Métricas y dashboard de proyectos
+- Operaciones en lote (batch)
 
 Responde en español de manera natural y amable. Tu nombre es FileMate AI.
 Siempre menciona en qué directorio estás trabajando cuando sea relevante."""
@@ -293,29 +454,58 @@ Siempre menciona en qué directorio estás trabajando cuando sea relevante."""
             verbose=True,
             memory=memory,
             handle_parsing_errors=True,
-            agent_kwargs={"system_message": system_prompt}
+            agent_kwargs={
+                "system_message": system_prompt
+            }
         )
 
         result = agent_executor.invoke({"input": command})
         respuesta = str(result["output"])
+
+        # Determinar si la respuesta es un mensaje de éxito o de error
+        is_success = not respuesta.lower().startswith(("error", "no pude", "no se pudo", "oops"))
+
+        # Determinar si la operación modificó el sistema de archivos
+        modifying_tools = [
+            "rename_file", "rename_folder", "convert_pdf_to_word_cloudconvert", 
+            "convert_image_format", "convert_pdf_to_word_local", "create_folder", 
+            "delete_file", "delete_folder", "move_file", "move_folder", 
+            "create_backup", "convert_word_to_pdf", "create_zip_archive", 
+            "extract_zip_archive", "move_files_batch", "rename_files_batch", 
+            "convert_images_batch"
+        ]
         
         # Agregar información del directorio actual a la respuesta si es relevante
         if any(keyword in command.lower() for keyword in ["crear", "eliminar", "renombrar", "mover", "carpeta", "archivo"]):
             respuesta += f"\n\n📁 *Directorio actual: {current_working_directory}*"
     
+        # Extraer la herramienta utilizada si está disponible
+        tool_used = ""
+        try:
+            if "intermediate_steps" in result and result["intermediate_steps"]:
+                tool_used = result["intermediate_steps"][0][0].tool
+        except:
+            pass
+
+        files_changed = is_success and tool_used in modifying_tools
+
         audio_path = None
-        if modo_voz == "Voz y texto":
-            tts = TTS()
-            audio_path = tts.process(respuesta)
+        if modo_voz == "Voz y texto" and is_success:
+            try:
+                tts = TTS()
+                audio_path = tts.process(respuesta)
+            except Exception as e:
+                print(f"Error al generar audio TTS: {e}")
         
         return {
-            "success": True,
+            "success": is_success,
             "message": respuesta,
             "memory": memory.load_memory_variables({}),
             "audio_path": audio_path,
-            "current_directory": current_working_directory  # Para que app.py pueda usar esta info
+            "current_directory": current_working_directory,
+            "files_changed": files_changed
         }
 
     except Exception as e:
-        error_message = f"Oops, no pude procesarlo. Error: {str(e)}. ¿Podés reformularlo?"
-        return {"success": False, "message": error_message}
+        error_message = f"Oops, ocurrió un error al procesar tu comando. Error: {str(e)}. ¿Podrías intentarlo de otra manera?"
+        return {"success": False, "message": error_message, "files_changed": False}

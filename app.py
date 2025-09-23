@@ -1,10 +1,9 @@
 # app.py - FileMate AI (versión con memoria de carpeta sincronizada)
 import streamlit as st
 import os
-import openai
 import speech_recognition as sr
 from agent import process_command, current_working_directory, set_current_directory
-from tools import list_files, convert_pdf_to_word_cloudconvert, rename_file, rename_folder, convert_image_format, search_files
+from tools import get_file_structure, list_files, convert_pdf_to_word_cloudconvert, rename_file, rename_folder, convert_image_format, search_files
 from dotenv import load_dotenv
 from voice_handler import speak_response
 
@@ -162,7 +161,14 @@ for message in st.session_state.messages:
             with st.expander("▶️ Escuchar audio"):
                 st.audio(message["audio_path"], format="audio/mp3", autoplay=True)
 
-# ----------------- FUNCIONES -----------------
+# ----------------- FUNCIÓN PARA OBTENER ESTRUCTURA DE ARCHIVOS (CON CACHÉ) -----------------
+def get_cached_file_structure():
+    if st.session_state.file_structure is None:
+        with st.spinner("Actualizando vista de archivos..."):
+            st.session_state.file_structure = get_file_structure(WORKING_DIR)
+    return st.session_state.file_structure
+
+# ----------------- FUNCIÓN PARA PROCESAR EL PROMPT -----------------
 def process_prompt(prompt, modo_voz):
     """Procesa el prompt del usuario con memoria de carpeta sincronizada"""
     global current_working_directory
@@ -173,7 +179,23 @@ def process_prompt(prompt, modo_voz):
 
     with st.chat_message("assistant", avatar="🗂️"):
         with st.spinner("🚀 Procesando tu solicitud..."):
-            response = process_command(prompt, st.session_state.chat_history, modo_voz)
+            # Obtener la estructura de archivos (usando el caché)
+            file_structure = get_cached_file_structure()
+            
+            # CORRECCIÓN: Usar solo los argumentos que acepta process_command
+            # Opción 1: Si process_command acepta 3 argumentos
+            try:
+                response = process_command(prompt, st.session_state.chat_history, file_structure)
+            except TypeError:
+                # Opción 2: Si process_command acepta solo 2 argumentos
+                try:
+                    response = process_command(prompt, st.session_state.chat_history)
+                except TypeError:
+                    # Opción 3: Si process_command acepta solo 1 argumento
+                    response = process_command(prompt)
+
+        if response.get("files_changed", False):
+            st.session_state.file_structure = None # Invalidar caché
 
         # Sincronizar directorio de trabajo si cambió
         if "current_directory" in response:
@@ -242,20 +264,35 @@ if st.button("🎤 Grabar por voz"):
     try:
         with st.spinner("🤖 ¡Escuchando! Por favor, habla ahora..."):
             with sr.Microphone() as source:
-                audio = r.listen(source, phrase_time_limit=10)
+                # Ajustar para ruido ambiental
+                r.adjust_for_ambient_noise(source, duration=1)
+                # Escuchar con timeout más largo
+                audio = r.listen(source, phrase_time_limit=15, timeout=5)
+        
         st.success("✅ Grabación finalizada. Transcribiendo...")
+        
         with st.spinner("✨ Transcribiendo tu mensaje..."):
-            text = r.recognize_google(audio, language="es-ES")
-            st.text_input("Mensaje transcrito:", value=text)
+            # Intentar con español primero, luego inglés como fallback
+            try:
+                text = r.recognize_google(audio, language="es-ES")
+            except:
+                try:
+                    text = r.recognize_google(audio, language="en-US")
+                except:
+                    text = r.recognize_google(audio)
+            
+            st.success(f"📝 Transcripción: {text}")
+            # Procesar automáticamente la transcripción
             process_prompt(text, modo_voz)
+            
     except sr.WaitTimeoutError:
-        st.error("Se agotó el tiempo de espera. No se detectó ninguna voz.")
+        st.error("⏱️ Se agotó el tiempo de espera. No se detectó ninguna voz.")
     except sr.UnknownValueError:
-        st.error("No pude entender el audio. Por favor, habla más claro.")
+        st.error("🔇 No pude entender el audio. Por favor, habla más claro y cerca del micrófono.")
     except sr.RequestError as e:
-        st.error(f"Error de servicio de reconocimiento de voz: {e}")
+        st.error(f"🌐 Error de servicio de reconocimiento de voz: {e}")
     except Exception as e:
-        st.error(f"Ocurrió un error inesperado: {e}")
+        st.error(f"⚠️ Ocurrió un error inesperado: {e}")
 
 if prompt := st.chat_input("Escribe tu consulta..."):
     process_prompt(prompt, modo_voz)
