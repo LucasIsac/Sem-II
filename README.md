@@ -1,6 +1,6 @@
 # FileMate AI - Asistente de Archivos Inteligente
 
-FileMate AI es un asistente inteligente que te permite manipular archivos y carpetas en tu sistema local mediante comandos de voz o texto. Utiliza la potencia del modelo de lenguaje Gemma de Google para interpretar tus intenciones y ejecutar acciones como renombrar archivos, convertir formatos y más.
+FileMate AI es un asistente inteligente que te permite manipular archivos y carpetas en tu sistema local mediante comandos de voz o texto. Utiliza la potencia del modelo de lenguaje Gemini de Google para interpretar tus intenciones y ejecutar acciones como renombrar archivos, convertir formatos y más.
 
 ## Estructura del Proyecto
 
@@ -8,15 +8,37 @@ El proyecto está organizado de la siguiente manera:
 
 ```
 /
-|-- files/                # Directorio de trabajo para los archivos del usuario
-|-- .gitignore            # Archivos y carpetas ignorados por Git
-|-- app.py                # Aplicación principal de Streamlit
-|-- agent.py              # Agente de IA que procesa los comandos
-|-- tools.py              # Funciones para manipular archivos
-|-- requirements.txt      # Dependencias del proyecto
-|-- .env                  # Archivo para variables de entorno (API key)
-|-- README.md             # Este archivo
+|-- files/                          # Directorio de trabajo para los archivos del usuario
+|-- mangle_service/                 # Microservicio en Go para la base de conocimiento Mangle
+|   |-- server/main.go              # Servidor principal del microservicio
+|   |-- proto/mangle.proto          # Definición del servicio gRPC
+|   |-- example/                    # Archivos de ejemplo para Mangle
+|-- static/                         # Directorio para archivos de audio generados
+|-- .gitignore                      # Archivos y carpetas ignorados por Git
+|-- app.py                          # Aplicación principal de Streamlit (UI)
+|-- agent.py                        # Agente de IA que procesa los comandos y orquesta las herramientas
+|-- tools.py                        # Funciones para manipular archivos y comunicarse con Mangle
+|-- requirements.txt                # Dependencias del proyecto Python
+|-- tts.py                          # Módulo para la síntesis de voz (Text-to-Speech)
+|-- voice_handler.py                # Módulo para gestionar la entrada de voz
+|-- schemas.py                      # Definiciones de esquemas de datos (Pydantic)
+|-- mangle_pb2.py                   # Clases de Python generadas por el compilador de Protocol Buffers
+|-- mangle_pb2_grpc.py              # Clases gRPC de Python generadas por el compilador
+|-- .env                            # Archivo para variables de entorno (API keys)
+|-- README.md                       # Este archivo
+|-- CHANGELOG.md                    # Historial de cambios del proyecto
+|-- TODO.md                         # Lista de tareas y mejoras pendientes
 ```
+
+## ¿Qué hace cada programa?
+
+-   `app.py`: Es el punto de entrada de la aplicación. Crea la interfaz de usuario con Streamlit, gestiona la interacción con el usuario (texto y voz) y visualiza el estado del sistema de archivos.
+-   `agent.py`: Contiene la lógica del agente de IA. Utiliza LangChain y el modelo Gemini para interpretar el comando del usuario, mantener una conversación y decidir qué herramienta ejecutar.
+-   `tools.py`: Define el arsenal de funciones que el agente puede utilizar. Incluye herramientas para manipular archivos (renombrar, mover, convertir, etc.) y para interactuar con el microservicio de Mangle (consultar, agregar datos, etc.).
+-   `tts.py`: Se encarga de la síntesis de voz. Utiliza la API de ElevenLabs para convertir las respuestas de texto del asistente en audio de alta calidad.
+-   `voice_handler.py`: Gestiona la captura y transcripción de audio. Utiliza la librería `SpeechRecognition` para convertir los comandos de voz del usuario en texto.
+-   `schemas.py`: Define las estructuras de datos utilizadas en el proyecto, como el esquema de un `Contacto`, utilizando Pydantic para la validación.
+-   `mangle_pb2.py` y `mangle_pb2_grpc.py`: Son archivos generados automáticamente a partir de `mangle.proto`. Contienen el código necesario para que el cliente Python (en `tools.py`) pueda comunicarse con el servidor gRPC de Mangle de forma estructurada y eficiente.
 
 ## Instalación
 
@@ -44,14 +66,13 @@ Para poner en marcha el proyecto, sigue estos pasos:
 
 4.  **Configura tu API Key:**
 
-    -   Renombra el archivo `.env.example` a `.env`.
-    -   Abre el archivo `.env` y reemplaza `"tu_api_key_de_google_gemini_aqui"` con tu API key de Google Gemini.
-
-## ¿Qué hace cada programa?
-
--   `app.py`: Es el punto de entrada de la aplicación. Crea la interfaz de usuario con Streamlit, gestiona la carga de archivos y recibe los comandos del usuario.
--   `agent.py`: Contiene la lógica del agente de IA. Utiliza LangChain y el modelo Gemini para interpretar el comando del usuario y decidir qué herramienta ejecutar.
--   `tools.py`: Define las funciones que el agente puede utilizar para manipular archivos, como renombrar, convertir formatos, etc.
+    -   Crea un archivo `.env` en la raíz del proyecto.
+    -   Añade tus API keys de Google Gemini, ElevenLabs y CloudConvert:
+        ```
+        GEMINI_API_KEY="tu_api_key_de_google_gemini"
+        ELEVENLABS_API_KEY="tu_api_key_de_elevenlabs"
+        CLOUDCONVERT_API_KEY="tu_api_key_de_cloudconvert"
+        ```
 
 ## ¿Cómo probar el proyecto?
 
@@ -68,7 +89,7 @@ Para poner en marcha el proyecto, sigue estos pasos:
 3.  **Interactúa con la aplicación:**
 
     -   Sube archivos utilizando la interfaz.
-    -   Escribe comandos en el campo de texto, por ejemplo:
+    -   Escribe o di comandos en el campo de texto, por ejemplo:
         -   "Renombra `mi_archivo.txt` a `documento_final.txt`"
         -   "Convierte `informe.pdf` a Word"
         -   "Cambia el formato de `logo.jpg` a `png`"

@@ -1,5 +1,16 @@
 # Historial de Cambios
 
+## 23 de Septiembre de 2025 - Integración de Funcionalidades de Voz
+
+### ✨ Nuevas Características
+
+-   **Integración de Comandos por Voz:** Se ha implementado un sistema completo para la interacción por voz.
+    -   `voice_handler.py`: Añadido para gestionar la captura de audio del micrófono y la transcripción a texto usando la librería `SpeechRecognition`.
+    -   `tts.py`: Añadido para convertir las respuestas de texto del asistente en audio de alta calidad utilizando la API de **ElevenLabs**.
+-   **Mejora de la Interfaz de Usuario (`app.py`):** La interfaz de Streamlit ahora incluye un flujo de activación de voz, un botón para grabar comandos y la capacidad de reproducir las respuestas de audio del asistente.
+
+---
+
 ## 22 de Septiembre de 2025 - Limpieza y Refactorización del Proyecto
 
 ### 🧹 Limpieza de Archivos No Utilizados
