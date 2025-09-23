@@ -197,11 +197,11 @@ tools = [
     ),
     Tool(
         name="get_system_resources",
-        func=system_manager.get_system_resources,
+        func=lambda x: system_manager.get_system_resources(),
         description="Obtiene información básica sobre el uso de CPU, memoria y disco del sistema. No requiere parámetros."
     ),
     Tool(
-        name="show_system_dashboard",
+        name="show_system_dashboard", 
         func=lambda x: get_system_dashboard_response(),
         description="Muestra un dashboard completo con gráficos y recomendaciones del sistema. Usar cuando el usuario pida ver el estado detallado de recursos, rendimiento o dashboard del sistema."
     ),
@@ -229,18 +229,6 @@ def initialize_llm():
         temperature=0.7,
         max_output_tokens=512
     )
-
-system_message = (
-    "Eres FileMate AI, un asistente de archivos. "
-    "Tu objetivo es asistir al usuario con tareas de manipulación de archivos. "
-    "Responde de manera natural y concisa en español. "
-)
-
-prompt = ChatPromptTemplate.from_messages([
-    SystemMessagePromptTemplate.from_template(system_message),
-    MessagesPlaceholder(variable_name="chat_history"),
-    ("human", "{input}"),
-])
 
 def process_command(command: str, chat_history: list = None, modo_voz: str = "Voz y texto"):
     """
