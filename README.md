@@ -97,6 +97,53 @@ El proyecto incluye un microservicio de alto rendimiento construido en Go que si
 
 4.  El servidor se iniciará y comenzará a escuchar peticiones en el puerto `8080`. Déjalo corriendo en segundo plano mientras usas la aplicación principal.
 
+### ¿Cómo Funciona Mangle en Este Proyecto?
+
+Mangle es una base de datos deductiva. A diferencia de las bases de datos tradicionales (como SQL) que almacenan datos y los recuperan, Mangle almacena **hechos** y **reglas** para **inferir nueva información**.
+
+**1. Hechos (La Base del Conocimiento):**
+
+Los hechos son declaraciones simples y atómicas sobre los datos. En este proyecto, cuando agregas un contacto, la función `agregar_contacto` (en `tools.py`) genera un conjunto de hechos como este:
+
+```prolog
+// Hechos para el contacto "Juan Pérez"
+contacto("juan_perez").
+nombre_real("juan_perez", "Juan Pérez").
+tiene_puesto("juan_perez", "desarrollador").
+tiene_email("juan_perez", "juan.perez@email.com").
+trabaja_en_proyecto("juan_perez", "proyecto_alpha").
+```
+
+Estos hechos se envían al microservicio de Mangle a través de gRPC y se almacenan.
+
+**2. Reglas (La Lógica de Inferencia):**
+
+Las reglas permiten a Mangle deducir nueva información a partir de los hechos existentes. Las reglas se definen en el archivo `mangle_service/example/knowledge_base.mgl`. Por ejemplo, podrías tener una regla para definir qué es un "contacto clave":
+
+```prolog
+// Un contacto es "clave" si trabaja en el "Proyecto Alpha"
+contacto_clave(Nombre) :- 
+  trabaja_en_proyecto(Nombre, "proyecto_alpha").
+```
+
+**3. Consultas (Haciendo Preguntas a la Base de Conocimiento):**
+
+Una vez que los hechos y las reglas están en la base de conocimiento, el agente de IA puede realizar consultas para obtener información que no está explícitamente almacenada.
+
+Por ejemplo, si le preguntas a FileMate AI:
+
+> "¿Quiénes son los contactos clave?"
+
+El agente usará la herramienta `consultar_base_de_conocimiento` para enviar la siguiente consulta a Mangle:
+
+```prolog
+contacto_clave(X).
+```
+
+Mangle utilizará la regla `contacto_clave` y los hechos existentes para inferir que `juan_perez` es un contacto clave y devolverá ese resultado.
+
+Esta arquitectura permite un razonamiento mucho más avanzado que simplemente buscar en un archivo de texto. Puedes definir relaciones complejas y dejar que Mangle haga las deducciones por ti.
+
 ---
 
 ## Tecnologías Utilizadas

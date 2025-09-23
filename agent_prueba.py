@@ -1,89 +1,41 @@
-import os
-from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
-from langchain.agents import tool
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents.format_scratchpad.openai_tools import (
-    format_to_openai_tool_messages,
-)
-from langchain.agents.output_parsers.openai_tools import OpenAIToolsAgentOutputParser
-from langchain.agents import AgentExecutor
-from tools import rename_file, rename_folder, convert_pdf_to_word_cloudconvert, convert_image_format, list_files, search_files
-from langchain_core.tools import Tool
-
-# Cargar variables de entorno
-load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
-
-# Verificar si la API key está configurada
-if not api_key:
-    raise ValueError("La variable de entorno OPENAI_API_KEY no está configurada.")
-
-# Inicializar el modelo de lenguaje
-llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0, api_key=api_key)
-
-# Definir las herramientas que el agente puede usar
-tools = [
-    Tool.from_function(
-        func=rename_file,
-        name="rename_file",
-        description="Renombra un archivo"
-    ),
-    Tool.from_function(
-        func=rename_folder,
-        name="rename_folder",
-        description="Renombra una carpeta"
-    ),
-    Tool.from_function(
-        func=convert_pdf_to_word_cloudconvert,
-        name="convert_pdf_to_word_cloudconvert",
-        description="Convierte un archivo PDF a Word"
-    ),
-    Tool.from_function(
-        func=convert_image_format,
-        name="convert_image_format",
-        description="Convierte una imagen a otro formato"
-    ),
-    Tool.from_function(
-        func=list_files,
-        name="list_files",
-        description="Lista todos los archivos en un directorio"
-    ),
-    Tool.from_function(
-        func=search_files,
-        name="search_files",
-        description="Busca archivos que coincidan con un patrón"
-    ),
-]
-
-# Vincular las herramientas al modelo
-llm_with_tools = llm.bind_tools(tools)
-
-# Crear el prompt para el agente
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", "Eres un asistente útil que puede gestionar archivos y carpetas."),
-        ("user", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-    ]
+from tools import (
+    cargar_conocimiento_desde_archivo, 
+    consultar_base_de_conocimiento, 
+    limpiar_base_de_conocimiento, 
+    analizar_y_cargar_contactos_desde_archivo,
+    agregar_contacto_a_archivo
 )
 
-# Crear el agente
-agent = (
-    {
-        "input": lambda x: x["input"],
-        "agent_scratchpad": lambda x: format_to_openai_tool_messages(
-            x["intermediate_steps"]
-        ),
-    }
-    | prompt
-    | llm_with_tools
-    | OpenAIToolsAgentOutputParser()
-)
+def probar_flujo_completo_interactivo():
+    """
+    Script que simula el flujo completo:
+    1. Carga inicial de conocimiento.
+    2. Añade un nuevo contacto a un archivo (simulando un comando de chat).
+    3. Actualiza la base de conocimiento desde el archivo modificado.
+    4. Verifica que el nuevo contacto existe en Mangle.
+    """
+    ruta_contactos_txt = "contactos.txt"
 
-# Crear el ejecutor del agente
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    print("--- INICIO DE LA PRUEBA DE FLUJO INTERACTIVO ---")
 
-def get_agent_executor():
-    """Retorna el ejecutor del agente."""
-    return agent_executor
+    # 1. Limpiar la base de conocimiento para un estado inicial limpio.
+    print("\nPaso 1: Limpiando la base de conocimiento...")
+    print(f"Resultado: {limpiar_base_de_conocimiento()}")
+
+    # 2. Añadir un nuevo contacto al archivo, simulando la entrada del usuario.
+    print("\nPaso 2: Añadiendo a 'Pepe' al archivo de contactos...")
+    print(f"Resultado: {agregar_contacto_a_archivo('Pepe', 'Tester', 'pepeejemplo@gamil.com', 'Proyecto de FileMateIa')}")
+
+    # 3. Analizar el archivo de contactos actualizado y cargar la información a Mangle.
+    print(f"\nPaso 3: Analizando '{ruta_contactos_txt}' y actualizando Mangle...")
+    print(f"Resultado: {analizar_y_cargar_contactos_desde_archivo(ruta_contactos_txt)}")
+
+    # 4. Consultar por el nuevo contacto para verificar que se añadió correctamente.
+    print("\nPaso 4: Verificando que 'Pepe' fue añadido a la base de conocimiento...")
+    consulta_pepe = consultar_base_de_conocimiento('trabaja_en("Pepe", Puesto).')
+    print(f"Resultado de la consulta para Pepe: {consulta_pepe}")
+    
+    print("\n--- FIN DE LA PRUEBA ---")
+
+if __name__ == "__main__":
+    probar_flujo_completo_interactivo()

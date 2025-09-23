@@ -9,8 +9,27 @@ from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, H
 from dotenv import load_dotenv
 from langchain.memory import ConversationBufferMemory
 from tts import TTS
-from tools import rename_file, rename_folder, convert_image_format, search_files, convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local,  get_datetime, create_folder, delete_file, delete_folder, move_file, move_folder, create_backup, convert_word_to_pdf, read_file_content, search_in_file, consultar_base_de_conocimiento, create_zip_archive, extract_zip_archive, move_files_batch, rename_files_batch, convert_images_batch, actualizar_base_de_conocimiento, indexar_carpeta_en_mangle
-
+from tools import (
+    rename_file, rename_folder, convert_image_format, search_files, 
+    convert_pdf_to_word_cloudconvert, convert_pdf_to_word_local, get_datetime, 
+    create_folder, delete_file, delete_folder, move_file, move_folder, 
+    create_backup, convert_word_to_pdf, read_file_content, search_in_file, 
+    create_zip_archive, extract_zip_archive, move_files_batch, rename_files_batch, 
+    convert_images_batch,
+    # FUNCIONES MANGLE BÁSICAS:
+    consultar_base_de_conocimiento, agregar_contacto, 
+    cargar_todos_los_contactos_desde_archivo, cargar_conocimiento_desde_archivo,
+    inicializar_base_conocimiento_completa, limpiar_base_de_conocimiento,
+    buscar_contactos_por_proyecto, buscar_contactos_prioritarios, 
+    listar_todos_los_proyectos,
+    # NUEVAS FUNCIONES DE MÉTRICAS:
+    agregar_metricas_proyecto, asignar_horas_persona_proyecto,
+    registrar_progreso_proyecto, calcular_metricas_proyecto,
+    detectar_proyectos_en_riesgo, calcular_carga_trabajo_equipo,
+    generar_dashboard_metricas, buscar_proyectos_por_estado,
+    buscar_equipo_proyecto
+)
+from schemas import ContactoInput
 
 
 load_dotenv()
@@ -104,11 +123,6 @@ tools = [
         description="Útil para buscar palabras o frases dentro de un archivo. Formato: palabra|archivo."
     ),
     Tool(
-        name="consultar_base_de_conocimiento",
-        func=consultar_base_de_conocimiento,
-        description="Útil para realizar consultas complejas o deductivas sobre una base de conocimiento. Úsalo cuando el usuario haga preguntas que requieran razonar sobre relaciones entre datos, como '¿quién es prioritario?' o '¿qué proyectos están relacionados?'. La entrada debe ser la consulta en formato Mangle, por ejemplo: 'contacto_prioritario(X).'"
-    ),
-    Tool(
         name="create_zip_archive",
         func=lambda x: create_zip_archive(*x.split("|")),
         description="Útil para comprimir archivos o carpetas en un ZIP. Solo indicá qué querés comprimir y cómo querés llamar al ZIP."
@@ -134,14 +148,152 @@ tools = [
         description="Útil para convertir múltiples imágenes a otro formato. Formato: 'imagen1,imagen2,...|nuevo_formato'."
     ),
     Tool(
-        name="actualizar_base_de_conocimiento",
-        func=actualizar_base_de_conocimiento,
-        description="Útil para actualizar o agregar información a la base de conocimiento. La entrada debe ser el hecho o información a agregar en formato Mangle, por ejemplo: 'contacto_prioritario(juan).'"
+        name="consultar_base_de_conocimiento",
+        func=consultar_base_de_conocimiento,
+        description=(
+            "Realiza consultas a la base de conocimiento Mangle. "
+            "Útil para preguntas como '¿quién trabaja en Proyecto Alpha?', '¿cuáles son los contactos prioritarios?', etc. "
+            "La entrada debe ser una consulta Mangle válida, por ejemplo: 'trabaja_en(Persona, \"Proyecto Alpha\").' "
+            "o 'contacto_prioritario(X).'"
+        )
     ),
     Tool(
-        name="indexar_carpeta_en_mangle",
-        func=lambda x: indexar_carpeta_en_mangle(x),
-        description="Útil para indexar todos los archivos de una carpeta en la base de conocimiento Mangle. La entrada debe ser el nombre de la carpeta a indexar."
+        name="agregar_contacto",
+        func=agregar_contacto,
+        description=(
+            "Agrega un nuevo contacto al archivo de contactos y a la base de conocimiento Mangle usando el esquema unificado. "
+            "Esta es la herramienta principal para añadir contactos individuales. "
+            "Formato de entrada: 'nombre, puesto, email, proyecto[, archivo_opcional]' "
+            "Ejemplo: 'Juan Pérez, Desarrollador, juan.perez@email.com, Proyecto Alpha'"
+        )
+    ),
+    Tool(
+        name="cargar_todos_los_contactos_desde_archivo",
+        func=cargar_todos_los_contactos_desde_archivo,
+        description=(
+            "Carga TODOS los contactos desde el archivo de contactos a la base de conocimiento Mangle. "
+            "Útil cuando necesitas sincronizar completamente el archivo con la base de datos. "
+            "Entrada opcional: nombre del archivo (por defecto 'contactos.txt')"
+        )
+    ),
+    Tool(
+        name="cargar_conocimiento_desde_archivo",
+        func=cargar_conocimiento_desde_archivo,
+        description=(
+            "Carga reglas y hechos base desde un archivo .mgl a la base de conocimiento Mangle. "
+            "Útil para cargar el esquema inicial, reglas de negocio, etc. "
+            "Entrada: ruta al archivo .mgl (ej: 'conocimiento.mangle')"
+        )
+    ),
+    Tool(
+        name="inicializar_base_conocimiento_completa",
+        func=lambda x: inicializar_base_conocimiento_completa(),  # Ignora el parámetro x
+        description=(
+            "Inicializa completamente la base de conocimiento Mangle: "
+            "1) Carga las reglas base desde conocimiento.mangle "
+            "2) Carga todos los contactos desde contactos.txt "
+            "Úsalo cuando necesites 'resetear' o 'sincronizar' todo el sistema de conocimiento."
+        )
+    ),
+    Tool(
+        name="limpiar_base_de_conocimiento",
+        func=limpiar_base_de_conocimiento,
+        description=(
+            "Limpia completamente la base de conocimiento Mangle (elimina todos los hechos y reglas). "
+            "¡CUIDADO! Esta operación es irreversible. Úsala solo cuando el usuario lo pida explícitamente."
+        )
+    ),
+    Tool(
+        name="buscar_contactos_por_proyecto",
+        func=buscar_contactos_por_proyecto,
+        description=(
+            "Busca todos los contactos que trabajan en un proyecto específico. "
+            "Entrada: nombre del proyecto (ej: 'Proyecto Alpha')"
+        )
+    ),
+    Tool(
+    name="buscar_contactos_prioritarios", 
+    func=lambda x: buscar_contactos_prioritarios(),  # Ignora el parámetro x
+    description=(
+        "Encuentra contactos prioritarios basado en las reglas de negocio definidas. "
+        "No requiere entrada específica."
+        )
+    ),
+    Tool(
+    name="listar_todos_los_proyectos",
+    func=lambda x: listar_todos_los_proyectos(),  # Ignora el parámetro x
+    description=(
+        "Lista todos los proyectos únicos en la base de conocimiento. "
+        "No requiere entrada específica."
+        )
+    ),
+     # ===== HERRAMIENTAS DE MÉTRICAS Y GESTIÓN DE PROYECTOS =====
+    Tool(
+        name="agregar_metricas_proyecto",
+        func=agregar_metricas_proyecto,
+        description=(
+            "Configura métricas completas de un proyecto (fechas, presupuesto, prioridad, etc.). "
+            "Formato: 'proyecto, estado, fecha_inicio, fecha_fin, presupuesto, prioridad, horas_estimadas' "
+            "Ejemplo: 'Proyecto Gamma, activo, 2025-01-15, 2025-06-30, 75000, alta, 500'"
+        )
+    ),
+    Tool(
+        name="asignar_horas_persona_proyecto",
+        func=asignar_horas_persona_proyecto,
+        description=(
+            "Asigna una persona a un proyecto con métricas de tiempo y rol. "
+            "Formato: 'persona, proyecto, horas_semanales, porcentaje_dedicacion, rol_en_proyecto' "
+            "Ejemplo: 'Juan Pérez, Proyecto Gamma, 25, 60, desarrollador_senior'"
+        )
+    ),
+    Tool(
+        name="registrar_progreso_proyecto",
+        func=registrar_progreso_proyecto,
+        description=(
+            "Actualiza el progreso de un proyecto. "
+            "Formato: 'proyecto, porcentaje_completado, horas_trabajadas[, fecha_reporte]' "
+            "Ejemplo: 'Proyecto Gamma, 45, 180'"
+        )
+    ),
+    Tool(
+        name="calcular_metricas_proyecto",
+        func=calcular_metricas_proyecto,
+        description=(
+            "Genera un reporte completo de métricas para un proyecto específico. "
+            "Entrada: nombre del proyecto"
+        )
+    ),
+    Tool(
+        name="generar_dashboard_metricas",
+        func=lambda x: generar_dashboard_metricas(),
+        description=(
+            "Genera un dashboard completo con todas las métricas del equipo y proyectos. "
+            "Incluye alertas, estados, y resúmenes ejecutivos. No requiere entrada."
+        )
+    ),
+    Tool(
+        name="detectar_proyectos_en_riesgo",
+        func=lambda x: detectar_proyectos_en_riesgo(),
+        description=(
+            "Identifica proyectos que están en riesgo basado en progreso y fechas límite. "
+            "No requiere entrada."
+        )
+    ),
+    Tool(
+        name="buscar_proyectos_por_estado",
+        func=buscar_proyectos_por_estado,
+        description=(
+            "Busca proyectos filtrados por estado específico. "
+            "Entrada: estado (ej: 'activo', 'completado', 'pausado')"
+        )
+    ),
+    Tool(
+        name="buscar_equipo_proyecto",
+        func=buscar_equipo_proyecto,
+        description=(
+            "Muestra todo el equipo asignado a un proyecto específico. "
+            "Entrada: nombre del proyecto"
+        )
     )
 ]
 
@@ -154,6 +306,8 @@ def initialize_llm():
     )
 
 def process_command(command: str, chat_history: list = None, modo_voz: str = "Voz y texto", file_structure: str = ""):
+
+
     """
     Procesa un comando de lenguaje natural utilizando un agente de IA para seleccionar
     y ejecutar la herramienta adecuada.

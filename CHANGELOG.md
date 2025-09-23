@@ -1,4 +1,19 @@
 # Historial de Cambios
+
+## 22 de Septiembre de 2025 - Limpieza y Refactorización del Proyecto
+
+### 🧹 Limpieza de Archivos No Utilizados
+
+-   Se han identificado y marcado para eliminación varios archivos que no están siendo utilizados en la aplicación principal. El objetivo es reducir el desorden en el repositorio y simplificar la estructura del proyecto.
+-   **Archivos a eliminar:**
+    -   `file_processor.py`: Módulo para la creación de una base de datos vectorial que no se implementó.
+    -   `watcher.py`: Observador del sistema de archivos, diseñado para `file_processor.py`.
+    -   `test.py`: Versión de prueba o copia antigua de `app.py`.
+    -   `agent_prueba.py`: Archivo de prueba para el agente de IA.
+    -   `mangle_client_test.py`: Pruebas para el cliente de Mangle.
+
+---
+
 ## 21 de Septiembre de 2025 - Optimización de Rendimiento y Corrección del Repositorio
 
 ### ✨ Nuevas Características y Mejoras
