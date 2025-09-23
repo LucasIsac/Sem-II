@@ -31,25 +31,24 @@ Estas son mejoras enfocadas en hacer el código existente más robusto, seguro y
 
 Estas son nuevas capacidades que se pueden agregar para que el asistente sea mucho más potente y versátil.
 
-### 1. Interactuar con el Contenido de los Archivos
+### 1. Interactuar con el Contenido de los Archivos - ✅ ¡Completado!
 - **Descripción:** Permitir que el asistente pueda "leer" y "entender" el contenido de los archivos, no solo gestionar sus nombres y formatos.
-- **Nuevas Herramientas Sugeridas:**
-  - `read_file_content(file_path)`: Para leer el contenido de archivos de texto (`.txt`, `.md`, `.py`, etc.).
-  - `summarize_document(file_path)`: Para extraer las ideas principales de un `.txt`, `.pdf` o `.docx`.
-  - `search_in_file(file_path, query)`: Para buscar una palabra o frase específica dentro de un archivo.
+- **Herramientas Implementadas:**
+  - `read_file_content(file_path)`: Lee el contenido de archivos de texto, PDF y Word.
+  - `search_in_file(file_path, query)`: Busca una palabra o frase específica dentro de un archivo.
 
-### 2. Compresión y Descompresión de Archivos (ZIP)
-- **Descripción:** Añadir la capacidad de trabajar con archivos comprimidos, una tarea muy común en la gestión de archivos.
-- **Nuevas Herramientas Sugeridas:**
-  - `create_zip_archive(source_files, zip_name)`: Para comprimir uno o más archivos/carpetas en un archivo `.zip`.
-  - `extract_zip_archive(zip_path, destination_folder)`: Para descomprimir un archivo `.zip`.
+### 2. Compresión y Descompresión de Archivos (ZIP) - ✅ ¡Completado!
+- **Descripción:** Añadir la capacidad de trabajar con archivos comprimidos.
+- **Herramientas Implementadas:**
+  - `create_zip_archive(source_files, zip_name)`: Comprime archivos/carpetas en un archivo `.zip`.
+  - `extract_zip_archive(zip_path, destination_folder)`: Descomprime un archivo `.zip`.
 
-### 3. Implementar Operaciones en Lote (Múltiples Archivos)
-- **Descripción:** Permitir al usuario realizar acciones sobre muchos archivos a la vez para mejorar la eficiencia.
-- **Ejemplos de Comandos:**
-  - "Mueve todos los archivos PDF de la carpeta 'descargas' a 'facturas'".
-  - "Renombra todos los archivos que empiezan con 'IMG_' y ponles el prefijo 'foto_vacaciones_'".
-  - "Convierte todas las imágenes `.jpg` de la carpeta 'fotos' a formato `.png`".
+### 3. Implementar Operaciones en Lote (Múltiples Archivos) - ✅ ¡Completado!
+- **Descripción:** Permitir al usuario realizar acciones sobre muchos archivos a la vez.
+- **Herramientas Implementadas:**
+  - `move_files_batch`: Mueve múltiples archivos a la vez.
+  - `rename_files_batch`: Renombra múltiples archivos siguiendo un patrón.
+  - `convert_images_batch`: Convierte múltiples imágenes a otro formato.
 
 ### 4. Descarga de Archivos desde Internet
 - **Descripción:** Hacer que el asistente pueda traer nuevos archivos al sistema desde la web.

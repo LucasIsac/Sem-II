@@ -1,16 +1,28 @@
-cloudconvert
+# Core de la aplicación y IA
 streamlit
 langchain
+langchain-google-genai
 google-generativeai
+python-dotenv
+pydantic
+
+# Interacción por Voz
+SpeechRecognition>=3.10.1
+elevenlabs
+playsound==1.2.2
+
+# Manipulación de Archivos y Documentos
+cloudconvert
 python-docx
 PyPDF2
 Pillow
-python-multipart
-python-dotenv
-langchain-google-genai
-requests>=2.31.0
-SpeechRecognition>=3.10.1
 pdf2docx
-elevenlabs
-playsound==1.2.2
 docx2pdf
+
+# Comunicación y APIs
+requests>=2.31.0
+python-multipart
+
+# gRPC para Microservicio Mangle
+grpcio
+grpcio-tools

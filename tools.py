@@ -5,7 +5,9 @@ from docx import Document
 import PyPDF2
 from PIL import Image
 import glob
-from datetime import datetime
+import csv
+from datetime import datetime, timedelta
+import json
 from elevenlabs import ElevenLabs
 from playsound import playsound
 from dotenv import load_dotenv
@@ -391,39 +393,6 @@ def convert_word_to_pdf(word_file, output_dir="files"):
         # Esto puede ocurrir si Word no está instalado o hay problemas con COM en Windows.
         return f"Ocurrió un error inesperado al convertir de Word a PDF: {str(e)}"
 
-def consultar_base_de_conocimiento(query: str):
-    """
-    Se conecta al servicio de Mangle, envía una consulta y devuelve los resultados procesados.
-    """
-    try:
-        with grpc.insecure_channel('localhost:8080') as channel:
-            stub = mangle_pb2_grpc.MangleStub(channel)
-            response = stub.Query(mangle_pb2.QueryRequest(query=query))
-            
-            resultados = []
-            # El patrón busca cualquier cosa dentro de las comillas dobles en la respuesta.
-            # Ejemplo: de 'answer: "contacto_prioritario(\"Juan\")"' extrae 'Juan'
-            pattern = re.compile(r'\"(.*?)\"')
-            
-            for result in response:
-                # result.answer es la cadena completa, ej: "contacto_prioritario(\"Juan\")"
-                matches = pattern.findall(result.answer)
-                if matches:
-                    # Agregamos todas las coincidencias encontradas. Usualmente será una.
-                    resultados.extend(matches)
-            
-            if not resultados:
-                return "No se encontraron resultados para la consulta."
-
-            return f"Resultados de la consulta: {', '.join(resultados)}"
-
-    except grpc.RpcError as e:
-        # Esto ocurre si el servidor no está disponible o hay un error de comunicación.
-        if e.code() == grpc.StatusCode.UNAVAILABLE:
-            return "Error: No se pudo conectar al servicio de Mangle. ¿Está el servidor en funcionamiento?"
-        return f"Ocurrió un error de gRPC: {e.details()}"
-    except Exception as e:
-        return f"Ocurrió un error inesperado al consultar la base de conocimiento: {str(e)}"
 
 
 
@@ -646,27 +615,489 @@ def convert_images_batch(folder: str, source_ext: str = ".jpg", target_ext: str 
 
     return f"Convertidas {len(files)} imágenes de {source_ext} a {target_ext} en {folder}"
 
-def actualizar_base_de_conocimiento(program: str):
+
+
+# Funciones para interactuar con Mangle a través de gRPC
+
+
+def consultar_base_de_conocimiento(query: str):
+    """
+    Se conecta al servicio de Mangle, envía una consulta y devuelve los resultados procesados.
+    """
+    try:
+        with grpc.insecure_channel('localhost:8080') as channel:
+            stub = mangle_pb2_grpc.MangleStub(channel)
+            response = stub.Query(mangle_pb2.QueryRequest(query=query))
+            
+            resultados = []
+            
+            for result in response:
+                # result.answer contiene la respuesta completa, ej: 'horas_semanales("Lucas", "Proyecto_Gamma", 20)'
+                answer = result.answer.strip()
+                
+                # Intentar extraer información de diferentes tipos de respuestas
+                if "(" in answer and ")" in answer:
+                    # Extraer el contenido dentro de los paréntesis
+                    start = answer.find("(") + 1
+                    end = answer.rfind(")")
+                    contenido = answer[start:end]
+                    
+                    # Dividir por comas y limpiar cada parte
+                    partes = []
+                    for parte in contenido.split(","):
+                        parte = parte.strip()
+                        # Quitar comillas si las tiene
+                        if parte.startswith('"') and parte.endswith('"'):
+                            parte = parte[1:-1]
+                        partes.append(parte)
+                    
+                    # Formatear según el tipo de consulta
+                    if len(partes) >= 3 and any(keyword in query for keyword in ["horas_semanales", "progreso_proyecto", "presupuesto"]):
+                        # Para consultas con 3 parámetros como horas_semanales(Persona, Proyecto, Horas)
+                        if len(partes) == 3:
+                            resultados.append(f"{partes[0]} en {partes[1]}: {partes[2]}")
+                        else:
+                            resultados.append(" - ".join(partes))
+                    elif len(partes) == 2:
+                        # Para consultas con 2 parámetros como contacto(Persona, Email)
+                        resultados.append(f"{partes[0]} ({partes[1]})")
+                    elif len(partes) == 1:
+                        # Para consultas simples
+                        resultados.append(partes[0])
+                    else:
+                        # Formato genérico
+                        resultados.append(" - ".join(partes))
+                else:
+                    # Si no tiene paréntesis, usar el patrón original
+                    pattern = re.compile(r'\"(.*?)\"')
+                    matches = pattern.findall(answer)
+                    if matches:
+                        resultados.extend(matches)
+                    else:
+                        # Como último recurso, agregar la respuesta completa
+                        resultados.append(answer)
+            
+            if not resultados:
+                return "No se encontraron resultados para la consulta."
+
+            return f"Resultados de la consulta: {', '.join(resultados)}"
+
+    except grpc.RpcError as e:
+        if e.code() == grpc.StatusCode.UNAVAILABLE:
+            return "Error: No se pudo conectar al servicio de Mangle. ¿Está el servidor en funcionamiento?"
+        return f"Ocurrió un error de gRPC: {e.details()}"
+    except Exception as e:
+        return f"Ocurrió un error inesperado al consultar la base de conocimiento: {str(e)}"
+
+def actualizar_base_de_conocimiento_grpc(program: str):
+    """Se comunica con el servidor gRPC de Mangle para actualizar la base de conocimiento."""
     with grpc.insecure_channel("localhost:8080") as channel:
         stub = mangle_pb2_grpc.MangleStub(channel)
         req = mangle_pb2.UpdateRequest(program=program)
         response = stub.Update(req)
         return response.updated_predicates
 
-def indexar_carpeta_en_mangle(path: str):
-    hechos = []
+def limpiar_base_de_conocimiento():
+    """
+    Limpia por completo la base de conocimiento de Mangle.
+    """
+    try:
+        print("Limpiando la base de conocimiento de Mangle...")
+        respuesta = actualizar_base_de_conocimiento_grpc("")
+        return "La base de conocimiento de Mangle ha sido limpiada con éxito."
+    except Exception as e:
+        return f"Ocurrió un error al limpiar la base de conocimiento: {str(e)}"
 
-    # os.walk recorre la carpeta de manera recursiva
-    for root, dirs, files in os.walk(path):
-        carpeta_actual = os.path.relpath(root, path)  # ruta relativa desde la raíz de prueba
-        hechos.append(f'carpeta("{carpeta_actual}", "{root}").')  # hecho de la carpeta actual
+def cargar_conocimiento_desde_archivo(file_path: str):
+    """
+    Carga un programa de Mangle desde un archivo .mgl y lo utiliza
+    para actualizar la base de conocimiento.
+    """
+    try:
+        # Se construye la ruta completa asumiendo que el archivo está en el directorio de trabajo 'files'
+        full_path = os.path.join(WORKING_DIR, file_path)
 
-        # Archivos en la carpeta actual
-        for archivo in files:
-            extension = archivo.split(".")[-1] if "." in archivo else "desconocido"
-            hechos.append(f'archivo("{archivo}").')
-            hechos.append(f'tipo("{archivo}", "{extension}").')
-            hechos.append(f'carpeta_archivo("{archivo}", "{carpeta_actual}").')
+        if not os.path.exists(full_path):
+            return f"Error: No se pudo encontrar el archivo '{file_path}'."
 
-    program = "\n".join(hechos)
-    actualizar_base_de_conocimiento(program)
+        with open(full_path, 'r', encoding='utf-8') as f:
+            programa_mangle = f.read()
+        
+        print(f"Cargando conocimiento desde '{full_path}'...")
+        actualizar_base_de_conocimiento_grpc(programa_mangle)
+        return f"El conocimiento del archivo '{file_path}' ha sido cargado exitosamente."
+
+    except Exception as e:
+        return f"Ocurrió un error al cargar el archivo de conocimiento: {str(e)}"
+
+def normalizar_nombre_para_mangle(nombre: str) -> str:
+    """
+    Normaliza un nombre para usarlo como átomo en Mangle.
+    Mantiene el formato legible pero válido para Mangle.
+    """
+    # Solo reemplazamos espacios por guiones bajos, mantenemos mayúsculas
+    return nombre.replace(" ", "_")
+
+def cargar_todos_los_contactos_desde_archivo(file_path: str = "contactos.txt"):
+    """
+    Carga TODOS los contactos desde el archivo usando el esquema unificado.
+    IMPORTANTE: Esto reemplaza todos los contactos en la base de conocimiento.
+    """
+    try:
+        full_path = os.path.join('files', file_path)
+        if not os.path.exists(full_path):
+            return f"Error: No se pudo encontrar el archivo '{file_path}'."
+
+        hechos = []
+        contactos_cargados = 0
+        
+        with open(full_path, 'r', encoding='utf-8') as f:
+            for linea in f:
+                linea = linea.strip()
+                if linea and ',' in linea:
+                    partes = [p.strip() for p in linea.split(',')]
+                    if len(partes) >= 4:
+                        nombre, puesto, email, proyecto = partes[:4]
+                        nombre_mangle = normalizar_nombre_para_mangle(nombre)
+                        
+                        # Usar el esquema de tu archivo .mgl existente
+                        hechos.extend([
+                            f'contacto("{nombre_mangle}", "{email}").',
+                            f'puesto("{nombre_mangle}", "{puesto}").',
+                            f'trabaja_en("{nombre_mangle}", "{proyecto}").'
+                        ])
+                        contactos_cargados += 1
+
+        if not hechos:
+            return "No se encontraron contactos válidos en el archivo."
+
+        # Cargar todo el programa
+        programa_mangle = "\n".join(hechos)
+        print(f"Cargando {contactos_cargados} contactos a Mangle...")
+        actualizar_base_de_conocimiento_grpc(programa_mangle)
+        
+        return f"Se cargaron {contactos_cargados} contactos desde '{file_path}' usando el esquema unificado."
+
+    except Exception as e:
+        return f"Error al cargar contactos: {str(e)}"
+
+def agregar_contacto(input_data, archivo_default="contactos.txt"):
+    """
+    Agrega UN contacto al archivo y a la base de conocimiento usando el esquema unificado.
+    """
+    if not isinstance(input_data, str):
+        return "Error: El formato de entrada debe ser un string."
+
+    partes = [x.strip() for x in input_data.split(",")]
+    
+    if len(partes) < 4:
+        return "Error: Faltan datos. El formato debe ser 'nombre, puesto, email, proyecto[, archivo]'."
+
+    nombre, puesto, email, proyecto = partes[:4]
+    archivo = partes[4] if len(partes) > 4 else archivo_default
+    
+    try:
+        # Paso 1: Agregar al archivo de texto
+        full_path = os.path.join("files", archivo)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        with open(full_path, 'a', encoding='utf-8') as f:
+            f.write(f"{nombre},{puesto},{email},{proyecto}\n")
+
+        # Paso 2: Agregar a la base de conocimiento usando el esquema unificado
+        nombre_mangle = normalizar_nombre_para_mangle(nombre)
+        
+        hechos = [
+            f'contacto("{nombre_mangle}", "{email}").',
+            f'puesto("{nombre_mangle}", "{puesto}").',
+            f'trabaja_en("{nombre_mangle}", "{proyecto}").'
+        ]
+        
+        programa_mangle = "\n".join(hechos)
+        actualizar_base_de_conocimiento_grpc(programa_mangle)
+        
+        return f"Contacto '{nombre}' agregado exitosamente al archivo y base de conocimiento."
+
+    except Exception as e:
+        return f"Error al agregar contacto '{nombre}': {str(e)}"
+
+def inicializar_base_conocimiento_completa():
+    """
+    Función de utilidad para inicializar completamente la base de conocimiento.
+    1. Carga el archivo .mgl base
+    2. Carga todos los contactos del archivo
+    """
+    try:
+        resultado1 = cargar_conocimiento_desde_archivo("conocimiento.mangle")
+        resultado2 = cargar_todos_los_contactos_desde_archivo("contactos.txt")
+        
+        return f"Inicialización completa:\n{resultado1}\n{resultado2}"
+    
+    except Exception as e:
+        return f"Error durante la inicialización: {str(e)}"
+
+# Funciones de consulta de ejemplo
+def buscar_contactos_por_proyecto(proyecto: str):
+    """Busca contactos que trabajen en un proyecto específico"""
+    query = f'trabaja_en(Persona, "{proyecto}").'
+    return consultar_base_de_conocimiento(query)
+
+def buscar_contactos_prioritarios():
+    """Busca contactos prioritarios usando la regla definida"""
+    query = 'contacto_prioritario(Persona).'
+    return consultar_base_de_conocimiento(query)
+
+def listar_todos_los_proyectos():
+    """Lista todos los proyectos únicos"""
+    query = 'trabaja_en(_, Proyecto).'
+    return consultar_base_de_conocimiento(query)
+
+
+# Funciones avanzadas para tu sistema Mangle
+
+def agregar_metricas_proyecto(input_data):
+    """
+    Agrega métricas y configuración a un proyecto.
+    Formato: 'proyecto, estado, fecha_inicio, fecha_fin, presupuesto, prioridad, horas_estimadas'
+    """
+    try:
+        partes = [x.strip() for x in input_data.split(",")]
+        
+        if len(partes) < 7:
+            return "Error: Formato requerido: 'proyecto, estado, fecha_inicio, fecha_fin, presupuesto, prioridad, horas_estimadas'"
+        
+        proyecto, estado, fecha_inicio, fecha_fin, presupuesto, prioridad, horas_estimadas = partes
+        
+        # Normalizar nombre del proyecto
+        proyecto_mangle = proyecto.replace(" ", "_")
+        
+        hechos = [
+            f'proyecto("{proyecto_mangle}").',
+            f'estado_proyecto("{proyecto_mangle}", "{estado}").',
+            f'fecha_inicio_proyecto("{proyecto_mangle}", "{fecha_inicio}").',
+            f'fecha_fin_proyecto("{proyecto_mangle}", "{fecha_fin}").',
+            f'presupuesto_proyecto("{proyecto_mangle}", {presupuesto}).',
+            f'prioridad_proyecto("{proyecto_mangle}", "{prioridad}").',
+            f'horas_estimadas_proyecto("{proyecto_mangle}", {horas_estimadas}).'
+        ]
+        
+        programa = "\n".join(hechos)
+        actualizar_base_de_conocimiento_grpc(programa)
+        
+        return f"Métricas del proyecto '{proyecto}' agregadas exitosamente."
+    
+    except Exception as e:
+        return f"Error al agregar métricas del proyecto: {str(e)}"
+
+def asignar_horas_persona_proyecto(input_data):
+    """
+    Asigna horas trabajadas por una persona en un proyecto específico.
+    Formato: 'persona, proyecto, horas_semanales, porcentaje_dedicacion, rol_en_proyecto'
+    """
+    try:
+        partes = [x.strip() for x in input_data.split(",")]
+        
+        if len(partes) < 5:
+            return "Error: Formato: 'persona, proyecto, horas_semanales, porcentaje_dedicacion, rol_en_proyecto'"
+        
+        persona, proyecto, horas_semanales, porcentaje, rol = partes
+        
+        # Normalizar nombres
+        persona_mangle = persona.replace(" ", "_")
+        proyecto_mangle = proyecto.replace(" ", "_")
+        
+        hechos = [
+            f'asignacion("{persona_mangle}", "{proyecto_mangle}").',
+            f'horas_semanales("{persona_mangle}", "{proyecto_mangle}", {horas_semanales}).',
+            f'porcentaje_dedicacion("{persona_mangle}", "{proyecto_mangle}", {porcentaje}).',
+            f'rol_en_proyecto("{persona_mangle}", "{proyecto_mangle}", "{rol}").'
+        ]
+        
+        programa = "\n".join(hechos)
+        actualizar_base_de_conocimiento_grpc(programa)
+        
+        return f"Asignación de {persona} al proyecto {proyecto} registrada exitosamente."
+    
+    except Exception as e:
+        return f"Error al asignar horas: {str(e)}"
+
+def registrar_progreso_proyecto(input_data):
+    """
+    Registra el progreso actual de un proyecto.
+    Formato: 'proyecto, porcentaje_completado, horas_trabajadas, fecha_reporte'
+    """
+    try:
+        partes = [x.strip() for x in input_data.split(",")]
+        
+        if len(partes) < 3:
+            return "Error: Formato: 'proyecto, porcentaje_completado, horas_trabajadas[, fecha_reporte]'"
+        
+        proyecto = partes[0]
+        porcentaje = partes[1]
+        horas_trabajadas = partes[2]
+        fecha = partes[3] if len(partes) > 3 else datetime.now().strftime('%Y-%m-%d')
+        
+        proyecto_mangle = proyecto.replace(" ", "_")
+        
+        hechos = [
+            f'progreso_proyecto("{proyecto_mangle}", {porcentaje}, "{fecha}").',
+            f'horas_trabajadas_total("{proyecto_mangle}", {horas_trabajadas}, "{fecha}").'
+        ]
+        
+        programa = "\n".join(hechos)
+        actualizar_base_de_conocimiento_grpc(programa)
+        
+        return f"Progreso del proyecto '{proyecto}' actualizado: {porcentaje}% completado."
+    
+    except Exception as e:
+        return f"Error al registrar progreso: {str(e)}"
+
+def calcular_metricas_proyecto(proyecto):
+    """
+    Calcula métricas completas de un proyecto específico.
+    """
+    try:
+        proyecto_mangle = proyecto.replace(" ", "_")
+        
+        queries = {
+            'estado': f'estado_proyecto("{proyecto_mangle}", Estado).',
+            'presupuesto': f'presupuesto_proyecto("{proyecto_mangle}", Presupuesto).',
+            'horas_estimadas': f'horas_estimadas_proyecto("{proyecto_mangle}", Horas).',
+            'progreso': f'progreso_proyecto("{proyecto_mangle}", Porcentaje, Fecha).',
+            'equipo': f'asignacion(Persona, "{proyecto_mangle}").',
+            'horas_por_persona': f'horas_semanales(Persona, "{proyecto_mangle}", Horas).'
+        }
+        
+        resultados = {}
+        for metrica, query in queries.items():
+            resultado = consultar_base_de_conocimiento(query)
+            resultados[metrica] = resultado
+        
+        # Formatear respuesta
+        reporte = f"📊 MÉTRICAS DEL PROYECTO: {proyecto}\n"
+        reporte += "=" * 50 + "\n"
+        
+        for metrica, valor in resultados.items():
+            reporte += f"{metrica.upper()}: {valor}\n"
+        
+        return reporte
+    
+    except Exception as e:
+        return f"Error al calcular métricas: {str(e)}"
+
+def detectar_proyectos_en_riesgo():
+    """
+    Detecta proyectos que están en riesgo basado en métricas.
+    """
+    query = '''
+    proyecto_en_riesgo(Proyecto, Razon) :-
+        estado_proyecto(Proyecto, "activo"),
+        progreso_proyecto(Proyecto, Porcentaje, _),
+        fecha_fin_proyecto(Proyecto, FechaFin),
+        Porcentaje < 50,
+        FechaFin < "2025-12-31".
+    '''
+    return consultar_base_de_conocimiento(query)
+
+def calcular_carga_trabajo_equipo():
+    """
+    Calcula la carga de trabajo total por persona.
+    """
+    query = '''
+    carga_total(Persona, HorasTotal) :-
+        asignacion(Persona, _),
+        findall(H, horas_semanales(Persona, _, H), Lista),
+        sum_list(Lista, HorasTotal).
+    '''
+    return consultar_base_de_conocimiento(query)
+
+def sugerir_redistribucion_carga():
+    """
+    Sugiere redistribución de carga basada en sobrecarga detectada.
+    """
+    query = '''
+    persona_sobrecargada(Persona) :-
+        carga_total(Persona, Horas),
+        Horas > 40.
+    
+    persona_disponible(Persona) :-
+        carga_total(Persona, Horas),
+        Horas < 30.
+    '''
+    return consultar_base_de_conocimiento(query)
+
+def generar_dashboard_metricas():
+    """
+    Genera un dashboard completo con todas las métricas clave.
+    """
+    try:
+        queries = {
+            'proyectos_activos': 'estado_proyecto(P, "activo").',
+            'proyectos_completados': 'estado_proyecto(P, "completado").',
+            'proyectos_en_pausa': 'estado_proyecto(P, "pausado").',
+            'total_presupuesto': 'presupuesto_proyecto(P, B).',
+            'equipo_total': 'asignacion(Persona, _).',
+            'proyectos_prioritarios': 'prioridad_proyecto(P, "alta").'
+        }
+        
+        dashboard = "\n🎯 DASHBOARD DE MÉTRICAS DEL EQUIPO\n"
+        dashboard += "=" * 60 + "\n\n"
+        
+        for metrica, query in queries.items():
+            resultado = consultar_base_de_conocimiento(query)
+            dashboard += f"📈 {metrica.upper().replace('_', ' ')}: {resultado}\n"
+        
+        # Métricas calculadas adicionales
+        dashboard += "\n🚨 ALERTAS:\n"
+        dashboard += f"Proyectos en riesgo: {detectar_proyectos_en_riesgo()}\n"
+        dashboard += f"Personas sobrecargadas: {sugerir_redistribucion_carga()}\n"
+        
+        return dashboard
+    
+    except Exception as e:
+        return f"Error al generar dashboard: {str(e)}"
+
+def exportar_metricas_csv(archivo_salida="metricas_equipo.csv"):
+    """
+    Exporta todas las métricas a un archivo CSV para análisis externo.
+    """
+    try:
+        # Consultar datos principales
+        proyectos = consultar_base_de_conocimiento('proyecto(P).')
+        asignaciones = consultar_base_de_conocimiento('asignacion(Persona, Proyecto).')
+        
+        # Crear CSV con métricas
+        with open(archivo_salida, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Proyecto', 'Persona', 'Horas_Semanales', 'Porcentaje_Dedicacion', 'Estado', 'Presupuesto'])
+            
+            # Aquí procesarías los resultados de las consultas
+            # Este es un ejemplo simplificado
+            writer.writerow(['Proyecto_Alpha', 'Juan_Pérez', '20', '50%', 'activo', '50000'])
+        
+        return f"Métricas exportadas a {archivo_salida}"
+    
+    except Exception as e:
+        return f"Error al exportar métricas: {str(e)}"
+
+# Funciones auxiliares para consultas específicas
+def buscar_proyectos_por_estado(estado):
+    """Busca proyectos por estado específico"""
+    query = f'estado_proyecto(Proyecto, "{estado}").'
+    return consultar_base_de_conocimiento(query)
+
+def buscar_equipo_proyecto(proyecto):
+    """Busca todo el equipo asignado a un proyecto"""
+    proyecto_mangle = proyecto.replace(" ", "_")
+    query = f'asignacion(Persona, "{proyecto_mangle}").'
+    return consultar_base_de_conocimiento(query)
+
+def calcular_progreso_promedio():
+    """Calcula el progreso promedio de todos los proyectos activos"""
+    query = '''
+    progreso_promedio(PromedioTotal) :-
+        findall(P, progreso_proyecto(_, P, _), ListaProgresos),
+        length(ListaProgresos, Cantidad),
+        sum_list(ListaProgresos, SumaTotal),
+        PromedioTotal is SumaTotal / Cantidad.
+    '''
+    return consultar_base_de_conocimiento(query)

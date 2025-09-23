@@ -1,6 +1,6 @@
 # FileMate AI - Asistente de Archivos Inteligente
 
-FileMate AI es un asistente inteligente que te permite manipular archivos y carpetas en tu sistema local mediante comandos de voz o texto. Utiliza la potencia del modelo de lenguaje Gemma de Google para interpretar tus intenciones y ejecutar acciones como renombrar archivos, convertir formatos y más.
+FileMate AI es un asistente inteligente que te permite manipular archivos y carpetas en tu sistema local mediante comandos de voz o texto. Utiliza la potencia del modelo de lenguaje Gemini de Google para interpretar tus intenciones y ejecutar acciones como renombrar archivos, convertir formatos y más.
 
 ## Estructura del Proyecto
 
@@ -8,15 +8,37 @@ El proyecto está organizado de la siguiente manera:
 
 ```
 /
-|-- files/                # Directorio de trabajo para los archivos del usuario
-|-- .gitignore            # Archivos y carpetas ignorados por Git
-|-- app.py                # Aplicación principal de Streamlit
-|-- agent.py              # Agente de IA que procesa los comandos
-|-- tools.py              # Funciones para manipular archivos
-|-- requirements.txt      # Dependencias del proyecto
-|-- .env                  # Archivo para variables de entorno (API key)
-|-- README.md             # Este archivo
+|-- files/                          # Directorio de trabajo para los archivos del usuario
+|-- mangle_service/                 # Microservicio en Go para la base de conocimiento Mangle
+|   |-- server/main.go              # Servidor principal del microservicio
+|   |-- proto/mangle.proto          # Definición del servicio gRPC
+|   |-- example/                    # Archivos de ejemplo para Mangle
+|-- static/                         # Directorio para archivos de audio generados
+|-- .gitignore                      # Archivos y carpetas ignorados por Git
+|-- app.py                          # Aplicación principal de Streamlit (UI)
+|-- agent.py                        # Agente de IA que procesa los comandos y orquesta las herramientas
+|-- tools.py                        # Funciones para manipular archivos y comunicarse con Mangle
+|-- requirements.txt                # Dependencias del proyecto Python
+|-- tts.py                          # Módulo para la síntesis de voz (Text-to-Speech)
+|-- voice_handler.py                # Módulo para gestionar la entrada de voz
+|-- schemas.py                      # Definiciones de esquemas de datos (Pydantic)
+|-- mangle_pb2.py                   # Clases de Python generadas por el compilador de Protocol Buffers
+|-- mangle_pb2_grpc.py              # Clases gRPC de Python generadas por el compilador
+|-- .env                            # Archivo para variables de entorno (API keys)
+|-- README.md                       # Este archivo
+|-- CHANGELOG.md                    # Historial de cambios del proyecto
+|-- TODO.md                         # Lista de tareas y mejoras pendientes
 ```
+
+## ¿Qué hace cada programa?
+
+-   `app.py`: Es el punto de entrada de la aplicación. Crea la interfaz de usuario con Streamlit, gestiona la interacción con el usuario (texto y voz) y visualiza el estado del sistema de archivos.
+-   `agent.py`: Contiene la lógica del agente de IA. Utiliza LangChain y el modelo Gemini para interpretar el comando del usuario, mantener una conversación y decidir qué herramienta ejecutar.
+-   `tools.py`: Define el arsenal de funciones que el agente puede utilizar. Incluye herramientas para manipular archivos (renombrar, mover, convertir, etc.) y para interactuar con el microservicio de Mangle (consultar, agregar datos, etc.).
+-   `tts.py`: Se encarga de la síntesis de voz. Utiliza la API de ElevenLabs para convertir las respuestas de texto del asistente en audio de alta calidad.
+-   `voice_handler.py`: Gestiona la captura y transcripción de audio. Utiliza la librería `SpeechRecognition` para convertir los comandos de voz del usuario en texto.
+-   `schemas.py`: Define las estructuras de datos utilizadas en el proyecto, como el esquema de un `Contacto`, utilizando Pydantic para la validación.
+-   `mangle_pb2.py` y `mangle_pb2_grpc.py`: Son archivos generados automáticamente a partir de `mangle.proto`. Contienen el código necesario para que el cliente Python (en `tools.py`) pueda comunicarse con el servidor gRPC de Mangle de forma estructurada y eficiente.
 
 ## Instalación
 
@@ -44,14 +66,13 @@ Para poner en marcha el proyecto, sigue estos pasos:
 
 4.  **Configura tu API Key:**
 
-    -   Renombra el archivo `.env.example` a `.env`.
-    -   Abre el archivo `.env` y reemplaza `"tu_api_key_de_google_gemini_aqui"` con tu API key de Google Gemini.
-
-## ¿Qué hace cada programa?
-
--   `app.py`: Es el punto de entrada de la aplicación. Crea la interfaz de usuario con Streamlit, gestiona la carga de archivos y recibe los comandos del usuario.
--   `agent.py`: Contiene la lógica del agente de IA. Utiliza LangChain y el modelo Gemini para interpretar el comando del usuario y decidir qué herramienta ejecutar.
--   `tools.py`: Define las funciones que el agente puede utilizar para manipular archivos, como renombrar, convertir formatos, etc.
+    -   Crea un archivo `.env` en la raíz del proyecto.
+    -   Añade tus API keys de Google Gemini, ElevenLabs y CloudConvert:
+        ```
+        GEMINI_API_KEY="tu_api_key_de_google_gemini"
+        ELEVENLABS_API_KEY="tu_api_key_de_elevenlabs"
+        CLOUDCONVERT_API_KEY="tu_api_key_de_cloudconvert"
+        ```
 
 ## ¿Cómo probar el proyecto?
 
@@ -68,7 +89,7 @@ Para poner en marcha el proyecto, sigue estos pasos:
 3.  **Interactúa con la aplicación:**
 
     -   Sube archivos utilizando la interfaz.
-    -   Escribe comandos en el campo de texto, por ejemplo:
+    -   Escribe o di comandos en el campo de texto, por ejemplo:
         -   "Renombra `mi_archivo.txt` a `documento_final.txt`"
         -   "Convierte `informe.pdf` a Word"
         -   "Cambia el formato de `logo.jpg` a `png`"
@@ -96,6 +117,53 @@ El proyecto incluye un microservicio de alto rendimiento construido en Go que si
     ```
 
 4.  El servidor se iniciará y comenzará a escuchar peticiones en el puerto `8080`. Déjalo corriendo en segundo plano mientras usas la aplicación principal.
+
+### ¿Cómo Funciona Mangle en Este Proyecto?
+
+Mangle es una base de datos deductiva. A diferencia de las bases de datos tradicionales (como SQL) que almacenan datos y los recuperan, Mangle almacena **hechos** y **reglas** para **inferir nueva información**.
+
+**1. Hechos (La Base del Conocimiento):**
+
+Los hechos son declaraciones simples y atómicas sobre los datos. En este proyecto, cuando agregas un contacto, la función `agregar_contacto` (en `tools.py`) genera un conjunto de hechos como este:
+
+```prolog
+// Hechos para el contacto "Juan Pérez"
+contacto("juan_perez").
+nombre_real("juan_perez", "Juan Pérez").
+tiene_puesto("juan_perez", "desarrollador").
+tiene_email("juan_perez", "juan.perez@email.com").
+trabaja_en_proyecto("juan_perez", "proyecto_alpha").
+```
+
+Estos hechos se envían al microservicio de Mangle a través de gRPC y se almacenan.
+
+**2. Reglas (La Lógica de Inferencia):**
+
+Las reglas permiten a Mangle deducir nueva información a partir de los hechos existentes. Las reglas se definen en el archivo `mangle_service/example/knowledge_base.mgl`. Por ejemplo, podrías tener una regla para definir qué es un "contacto clave":
+
+```prolog
+// Un contacto es "clave" si trabaja en el "Proyecto Alpha"
+contacto_clave(Nombre) :- 
+  trabaja_en_proyecto(Nombre, "proyecto_alpha").
+```
+
+**3. Consultas (Haciendo Preguntas a la Base de Conocimiento):**
+
+Una vez que los hechos y las reglas están en la base de conocimiento, el agente de IA puede realizar consultas para obtener información que no está explícitamente almacenada.
+
+Por ejemplo, si le preguntas a FileMate AI:
+
+> "¿Quiénes son los contactos clave?"
+
+El agente usará la herramienta `consultar_base_de_conocimiento` para enviar la siguiente consulta a Mangle:
+
+```prolog
+contacto_clave(X).
+```
+
+Mangle utilizará la regla `contacto_clave` y los hechos existentes para inferir que `juan_perez` es un contacto clave y devolverá ese resultado.
+
+Esta arquitectura permite un razonamiento mucho más avanzado que simplemente buscar en un archivo de texto. Puedes definir relaciones complejas y dejar que Mangle haga las deducciones por ti.
 
 ---
 
