@@ -28,7 +28,10 @@ from tools import (
     registrar_progreso_proyecto, calcular_metricas_proyecto,
     detectar_proyectos_en_riesgo, calcular_carga_trabajo_equipo,
     generar_dashboard_metricas, buscar_proyectos_por_estado,
-    buscar_equipo_proyecto
+    buscar_equipo_proyecto,
+    # NUEVAS FUNCIONES DE ARCHIVOS DE TEXTO:
+    create_text_file, edit_text_file, append_to_text_file, insert_text_at_line,
+    replace_text_in_file, get_file_info
 )
 from schemas import ContactoInput
 
@@ -54,11 +57,19 @@ def get_current_directory():
     global current_working_directory
     return current_working_directory
 
-def set_current_directory(new_directory):
-    """Establece un nuevo directorio de trabajo"""
+def set_current_directory(new_directory: str):
+    """Establece un nuevo directorio de trabajo absoluto"""
     global current_working_directory
+
+    # Convertir a ruta absoluta, relativa al directorio actual
+    if not os.path.isabs(new_directory):
+        new_directory = os.path.abspath(os.path.join(current_working_directory, new_directory))
+    
+    # Crear la carpeta si no existe
+    os.makedirs(new_directory, exist_ok=True)
+
     current_working_directory = new_directory
-    return f"Directorio de trabajo cambiado a: {new_directory}"
+    return f"Directorio de trabajo cambiado a: {current_working_directory}"
 
 def list_files_with_context(directory_param=None):
     """Lista archivos manteniendo el contexto de directorio actual"""
@@ -130,6 +141,47 @@ def move_folder_with_context(params):
     if len(parts) == 2:
         return move_folder(parts[0], parts[1], current_working_directory)
     return {"success": False, "message": "Formato incorrecto. Usar: carpeta|destino"}
+
+def create_text_file_with_context(params):
+    """Crea un archivo de texto en el directorio actual"""
+    global current_working_directory
+    parts = params.split("|", 1)
+    file_name = parts[0]
+    content = parts[1] if len(parts) > 1 else ""
+    return create_text_file(file_name, content, current_working_directory)
+
+def edit_text_file_with_context(params):
+    """Edita un archivo de texto en el directorio actual"""
+    global current_working_directory
+    parts = params.split("|")
+    if len(parts) < 2:
+        return {"success": False, "message": "Formato incorrecto. Usar: archivo|contenido|modo"}
+    
+    file_name = parts[0]
+    content = parts[1]
+    mode = parts[2] if len(parts) > 2 else "overwrite"
+    return edit_text_file(file_name, content, mode, current_working_directory)
+
+def append_to_text_file_with_context(params):
+    """Agrega contenido al final de un archivo en el directorio actual"""
+    global current_working_directory
+    parts = params.split("|", 1)
+    if len(parts) < 2:
+        return {"success": False, "message": "Formato incorrecto. Usar: archivo|contenido"}
+    return append_to_text_file(parts[0], parts[1], current_working_directory)
+
+def replace_text_in_file_with_context(params):
+    """Busca y reemplaza texto en un archivo del directorio actual"""
+    global current_working_directory
+    parts = params.split("|")
+    if len(parts) < 3:
+        return {"success": False, "message": "Formato incorrecto. Usar: archivo|texto_buscar|texto_reemplazar"}
+    return replace_text_in_file(parts[0], parts[1], parts[2], current_working_directory)
+
+def get_file_info_with_context(file_name):
+    """Obtiene información de un archivo en el directorio actual"""
+    global current_working_directory
+    return get_file_info(file_name, current_working_directory)
 
 # Definir las herramientas disponibles con contexto
 tools = [
@@ -374,7 +426,62 @@ tools = [
         name="buscar_equipo_proyecto",
         func=buscar_equipo_proyecto,
         description="Muestra equipo asignado a un proyecto específico. Entrada: nombre del proyecto"
-    )
+    ),
+    Tool(
+        name="create_text_file",
+        func=lambda x: create_text_file(*x.split("|", 1)),
+        description="Crea un archivo de texto. Formato: nombre_archivo|contenido (contenido opcional)"
+    ),
+    Tool(
+        name="edit_text_file",
+        func=lambda x: edit_text_file(*x.split("|")),
+        description="Edita un archivo de texto. Formato: nombre_archivo|contenido|modo (modo: overwrite/append/prepend)"
+    ),
+    Tool(
+        name="append_to_text_file",
+        func=lambda x: append_to_text_file(*x.split("|", 1)),
+        description="Agrega contenido al final de un archivo de texto. Formato: nombre_archivo|contenido"
+    ),
+    Tool(
+        name="insert_text_at_line",
+        func=lambda x: insert_text_at_line(x.split("|")[0], int(x.split("|")[1]), x.split("|")[2]),
+        description="Inserta texto en una línea específica. Formato: nombre_archivo|número_línea|contenido"
+    ),
+    Tool(
+        name="replace_text_in_file",
+        func=lambda x: replace_text_in_file(*x.split("|")),
+        description="Busca y reemplaza texto en un archivo. Formato: nombre_archivo|texto_buscar|texto_reemplazar"
+    ),
+    Tool(
+        name="get_file_info",
+        func=lambda x: get_file_info(x),
+        description="Obtiene información detallada de un archivo (tamaño, líneas, palabras, etc.). Parámetro: nombre_archivo"
+    ),
+    Tool(
+        name="create_text_file",
+        func=create_text_file_with_context,
+        description="Crea un archivo de texto en el directorio actual. Formato: nombre_archivo|contenido (contenido opcional)"
+    ),
+    Tool(
+        name="edit_text_file",
+        func=edit_text_file_with_context,
+        description="Edita un archivo de texto en el directorio actual. Formato: nombre_archivo|contenido|modo (modo: overwrite/append/prepend)"
+    ),
+    Tool(
+        name="append_to_text_file",
+        func=append_to_text_file_with_context,
+        description="Agrega contenido al final de un archivo de texto en el directorio actual. Formato: nombre_archivo|contenido"
+    ),
+    Tool(
+        name="replace_text_in_file",
+        func=replace_text_in_file_with_context,
+        description="Busca y reemplaza texto en un archivo del directorio actual. Formato: nombre_archivo|texto_buscar|texto_reemplazar"
+    ),
+    Tool(
+        name="get_file_info",
+        func=get_file_info_with_context,
+        description="Obtiene información detallada de un archivo en el directorio actual. Parámetro: nombre_archivo"
+    ),
 ]
 
 def initialize_llm():
@@ -405,47 +512,68 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
         # Prompt del sistema unificado
         system_prompt = f"""Eres FileMate AI, un asistente integral de gestión de archivos, sistema y proyectos. Tu función es interpretar las instrucciones del usuario y ejecutar las herramientas correspondientes.
 
-**CONTEXTO ACTUAL:**
-- Directorio de trabajo actual: {current_working_directory}
-- IMPORTANTE: Mantén siempre el contexto del directorio actual entre comandos
+        ** IMPORTANTE: Cuando ejecutes herramientas debes seguir SIEMPRE este formato ReAct: **
+        Thought: explica tu razonamiento
+        Action: elige UNA herramienta
+        Action Input: parámetros de la herramienta
+        Observation: resultado de la herramienta
+        Final Answer: tu respuesta final al usuario
 
-**GESTIÓN DE DIRECTORIO DE TRABAJO:**
-- Cuando el usuario mencione "documentos", "descargas", "escritorio", etc., usa `list_files` con ese parámetro para cambiar el contexto
-- Una vez que cambies a un directorio, TODAS las operaciones posteriores (crear, eliminar, renombrar) se realizan en ese directorio
-- Usa `get_current_directory` para verificar dónde estás trabajando
-- Si necesitas cambiar explícitamente de directorio, usa `set_current_directory`
+          Responde siempre en español de manera natural pero SIN formato especial
 
-**PARA MANEJAR ARCHIVOS:**
-- SIEMPRE trabaja en el directorio actual a menos que el usuario especifique otro
-- Si el usuario no proporciona una ruta completa, asume que se refiere a archivos en el directorio actual
-- Para búsquedas globales usa `search_files_smart`, para búsquedas locales usa `search_files`
-- Cuando crees carpetas o archivos, hazlo en el directorio actual
+        No escribas nada fuera de este formato. No uses listas, emojis ni explicaciones adicionales fuera de `Final Answer`.
 
-**MEMORIA DE CONTEXTO:**
-- Recuerda siempre en qué directorio estás trabajando
-- Si el usuario dice "ahora crea la carpeta X", créala en el directorio donde estuviste trabajando anteriormente
-- No vuelvas al directorio por defecto a menos que el usuario lo pida explícitamente
+        **CONTEXTO ACTUAL:**
+        - Directorio de trabajo actual: {current_working_directory}
+        - IMPORTANTE: Mantén siempre el contexto del directorio actual entre comandos
 
-**MONITOREO DEL SISTEMA:**
-- Para información detallada de recursos usa `show_system_dashboard`
-- Para consultas simples sobre recursos usa `get_system_resources`
-- Ejemplos: "cómo están los recursos", "muestra el dashboard", "estado del sistema"
+        **GESTIÓN DE DIRECTORIO DE TRABAJO:**
+        - Cuando el usuario mencione "documentos", "descargas", "escritorio", etc., usa `list_files` con ese parámetro para cambiar el contexto
+        - Una vez que cambies a un directorio, TODAS las operaciones posteriores (crear, eliminar, renombrar) se realizan en ese directorio
+        - Usa `get_current_directory` para verificar dónde estás trabajando
+        - Si necesitas cambiar explícitamente de directorio, usa `set_current_directory`
 
-**GESTIÓN DE PROYECTOS MANGLE:**
-- Para contactos usa herramientas como `agregar_contacto`, `buscar_contactos_por_proyecto`
-- Para métricas usa `agregar_metricas_proyecto`, `calcular_metricas_proyecto`, `generar_dashboard_metricas`
-- Para proyectos usa `buscar_proyectos_por_estado`, `detectar_proyectos_en_riesgo`
+        **PARA MANEJAR ARCHIVOS:**
+        - SIEMPRE trabaja en el directorio actual a menos que el usuario especifique otro
+        - Si el usuario no proporciona una ruta completa, asume que se refiere a archivos en el directorio actual
+        - Para búsquedas globales usa `search_files_smart`, para búsquedas locales usa `search_files`
+        - Cuando crees carpetas o archivos, hazlo en el directorio actual
 
-**CAPACIDADES PRINCIPALES:**
-- Gestión completa de archivos y carpetas con memoria de contexto
-- Conversión de documentos e imágenes
-- Monitoreo y control del sistema operativo
-- Gestión de proyectos y contactos con Mangle
-- Métricas y dashboard de proyectos
-- Operaciones en lote (batch)
+        **EDICIÓN DE ARCHIVOS DE TEXTO:**
+        - Para crear archivos de texto usa `create_text_file`
+        - Para editar completamente un archivo usa `edit_text_file` con modo "overwrite"
+        - Para agregar contenido al final usa `append_to_text_file` o `edit_text_file` con modo "append"
+        - Para agregar al inicio usa `edit_text_file` con modo "prepend"
+        - Para insertar en línea específica usa `insert_text_at_line`
+        - Para buscar y reemplazar texto usa `replace_text_in_file`
+        - Para información del archivo usa `get_file_info`
 
-Responde en español de manera natural y amable. Tu nombre es FileMate AI.
-Siempre menciona en qué directorio estás trabajando cuando sea relevante."""
+        **MEMORIA DE CONTEXTO:**
+        - Recuerda siempre en qué directorio estás trabajando
+        - Si el usuario dice "ahora crea la carpeta X", créala en el directorio donde estuviste trabajando anteriormente
+        - No vuelvas al directorio por defecto a menos que el usuario lo pida explícitamente
+
+        **MONITOREO DEL SISTEMA:**
+        - Para información detallada de recursos usa `show_system_dashboard`
+        - Para consultas simples sobre recursos usa `get_system_resources`
+        - Ejemplos: "cómo están los recursos", "muestra el dashboard", "estado del sistema"
+
+        **GESTIÓN DE PROYECTOS MANGLE:**
+        - Para contactos usa herramientas como `agregar_contacto`, `buscar_contactos_por_proyecto`
+        - Para métricas usa `agregar_metricas_proyecto`, `calcular_metricas_proyecto`, `generar_dashboard_metricas`
+        - Para proyectos usa `buscar_proyectos_por_estado`, `detectar_proyectos_en_riesgo`
+
+        **CAPACIDADES PRINCIPALES:**
+        - Gestión completa de archivos y carpetas con memoria de contexto
+        - Creación y edición avanzada de archivos de texto
+        - Conversión de documentos e imágenes
+        - Monitoreo y control del sistema operativo
+        - Gestión de proyectos y contactos con Mangle
+        - Métricas y dashboard de proyectos
+        - Operaciones en lote (batch)
+
+        Responde siempre en español de manera natural pero SIN formato especial
+        Siempre menciona en qué directorio estás trabajando cuando sea relevante."""
 
         agent_executor = initialize_agent(
             tools,
@@ -454,6 +582,7 @@ Siempre menciona en qué directorio estás trabajando cuando sea relevante."""
             verbose=True,
             memory=memory,
             handle_parsing_errors=True,
+            return_intermediate_steps=True,
             agent_kwargs={
                 "system_message": system_prompt
             }

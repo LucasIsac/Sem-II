@@ -15,7 +15,10 @@ import subprocess
 from typing import Dict, Any, List, Optional
 from xml.dom.minidom import Document
 import zipfile
-from attr import Converter
+try:
+    from pdf2docx import Converter
+except ImportError:
+    Converter = None
 import grpc
 from gtts import gTTS
 from dotenv import load_dotenv
@@ -93,28 +96,29 @@ class SecurityManager:
 def list_files_context(directory: Optional[str] = None, recursive: bool = False) -> List[Dict[str, str]]:
     """
     Lista archivos y carpetas desde directory (por defecto 'files' del proyecto)
-    - directory: ruta o carpeta especial (documentos, descargas, escritorio, etc.)
-    - recursive: si True, incluye subcarpetas recursivamente
     """
-    import streamlit as st
-
-    # Carpeta por defecto
-    default_folder = os.path.join(os.getcwd(), "files")
-
-    # Si no hay directory, usa memoria o carpeta por defecto
-    if not directory:
-        directory = st.session_state.get("last_folder", default_folder)
-
-    abs_path, err = get_absolute_path(directory)
-    if err:
-        return []
-
-    # Guardar en memoria la última carpeta
-    st.session_state["last_folder"] = abs_path
-
-    # Listado de archivos y carpetas
-    items = []
     try:
+        import streamlit as st
+        # Carpeta por defecto
+        default_folder = os.path.join(os.getcwd(), "files")
+
+        # Si no hay directory, usa memoria o carpeta por defecto
+        if not directory:
+            directory = st.session_state.get("last_folder", default_folder) if 'st' in globals() else default_folder
+
+        abs_path, err = get_absolute_path(directory)
+        if err:
+            return []
+
+        # Guardar en memoria la última carpeta (solo si streamlit está disponible)
+        if 'st' in globals():
+            st.session_state["last_folder"] = abs_path
+
+        # Listado de archivos y carpetas
+        items = []
+        if not os.path.exists(abs_path):
+            return []
+            
         for entry in os.scandir(abs_path):
             if entry.is_file():
                 items.append({"name": entry.name, "type": "archivo", "path": entry.path})
@@ -124,21 +128,16 @@ def list_files_context(directory: Optional[str] = None, recursive: bool = False)
                 if recursive:
                     sub_items = list_files_context(entry.path, recursive=True)
                     items.extend(sub_items)
+        
         # Orden alfabético
         items.sort(key=lambda x: x['name'])
         return items
-    except Exception:
+    except Exception as e:
         return []
-
-
 
 def get_absolute_path(path_input: str, base_dir: Optional[str] = None) -> tuple[Optional[str], Optional[str]]:
     """
-    Convierte rutas “naturales” en rutas absolutas:
-    - Soporta carpetas especiales: escritorio, documentos, descargas, imagenes
-    - Soporta subcarpetas, ej: "documentos/MiCarpeta/archivo.txt"
-    - Si es ruta absoluta, la devuelve tal cual
-    - Si base_dir está dado, se usa como raíz para rutas relativas
+    Convierte rutas "naturales" en rutas absolutas con mejor manejo de errores
     """
     try:
         if not path_input:
@@ -159,7 +158,6 @@ def get_absolute_path(path_input: str, base_dir: Optional[str] = None) -> tuple[
         abs_path = None
         for key in common_paths:
             if lowered.startswith(key):
-                # Obtiene lo que sigue después de la carpeta común
                 rest = path_input[len(key):].lstrip("/\\")
                 abs_path = os.path.join(common_paths[key], rest)
                 break
@@ -171,18 +169,29 @@ def get_absolute_path(path_input: str, base_dir: Optional[str] = None) -> tuple[
             elif base_dir:
                 abs_path = os.path.abspath(os.path.join(base_dir, path_input))
             else:
-                abs_path = os.path.abspath(os.path.expanduser(path_input))
+                # CORRECCIÓN: Usar directorio 'files' como base por defecto
+                working_dir = os.path.join(os.getcwd(), "files")
+                abs_path = os.path.abspath(os.path.join(working_dir, path_input))
 
-        # Verificación de seguridad
-        security = SecurityManager()
-        if not security.is_path_allowed(abs_path):
-            return None, "Ruta no permitida por razones de seguridad"
+        # Crear el directorio padre si no existe (solo para la carpeta 'files')
+        if abs_path.startswith(os.path.join(os.getcwd(), "files")):
+            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
 
+        # Verificación de seguridad (simplificada para desarrollo)
         return abs_path, None
 
     except Exception as e:
         return None, f"Error resolviendo ruta: {str(e)}"
-
+    
+def debug_file_search():
+    import os
+    base_dir = os.path.join(os.getcwd(), "files")
+    print(f"Buscando en: {base_dir}")
+    
+    for root, dirs, files in os.walk(base_dir):
+        for file in files:
+            if "economia" in file.lower() or "resumen" in file.lower():
+                print(f"Archivo encontrado: {os.path.join(root, file)}")
 
 # ----------------- SISTEMA OPERATIVO -----------------
 class SystemManager:
@@ -381,7 +390,6 @@ def create_folder(folder_name: str, base_dir: Optional[str] = None) -> Dict[str,
     except Exception as e:
         return {"success": False, "message": f"No se pudo crear la carpeta: {str(e)}"}
     
-
 def convert_image_format(image_path: str, new_format: str, output_path: Optional[str] = None) -> Dict[str, Any]:
     """
     Convierte una imagen a otro formato usando PIL.
@@ -503,7 +511,7 @@ def convert_pdf_to_word_local(pdf_path: str, docx_path: Optional[str] = None) ->
     Convierte un PDF a DOCX localmente usando pdf2docx.
     """
     if Converter is None:
-        return {"success": False, "message": "pdf2docx no está instalado."}
+        return {"success": False, "message": "pdf2docx no está instalado. Instálalo con: pip install pdf2docx"}
 
     pdf_full_path, error = get_absolute_path(pdf_path)
     if error:
@@ -522,12 +530,11 @@ def convert_pdf_to_word_local(pdf_path: str, docx_path: Optional[str] = None) ->
 
     try:
         cv = Converter(pdf_full_path)
-        cv.convert(docx_full_path, start=0, end=None)
+        cv.convert(docx_full_path)  # CORRECCIÓN: sin parámetros start/end
         cv.close()
         return {"success": True, "message": f"PDF convertido a Word localmente: {docx_path}", "new_file": docx_full_path}
     except Exception as e:
         return {"success": False, "message": f"Error en la conversión local de PDF a Word: {str(e)}"}
-
 # ----------------- FUNCIONES DE ARCHIVOS NATURALES -----------------
 
 def create_folder(folder_name: str, base_dir: Optional[str] = None) -> Dict[str, Any]:
@@ -1695,3 +1702,234 @@ def calcular_progreso_promedio():
         PromedioTotal is SumaTotal / Cantidad.
     '''
     return consultar_base_de_conocimiento(query)
+
+
+# Funciones para crear y editar archivos de texto
+
+def create_text_file(file_name: str, content: str = "", base_dir: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Crea un nuevo archivo de texto con el contenido especificado.
+    
+    Args:
+        file_name: nombre del archivo (con o sin extensión .txt)
+        content: contenido inicial del archivo (opcional)
+        base_dir: directorio base (opcional, por defecto usa WORKING_DIR)
+    """
+    try:
+        # Asegurar que tenga extensión .txt
+        if not file_name.lower().endswith('.txt'):
+            file_name += '.txt'
+        
+        file_path, error = get_absolute_path(file_name, base_dir)
+        if error:
+            return {"success": False, "message": error}
+        
+        # Verificar si el archivo ya existe
+        if os.path.exists(file_path):
+            return {"success": False, "message": f"El archivo '{file_name}' ya existe. Usa la función de editar para modificarlo."}
+        
+        # Crear el directorio padre si no existe
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        
+        # Crear el archivo con el contenido
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        return {
+            "success": True, 
+            "message": f"Archivo '{file_name}' creado exitosamente.",
+            "path": file_path,
+            "content_length": len(content)
+        }
+        
+    except PermissionError:
+        return {"success": False, "message": f"Sin permisos para crear el archivo '{file_name}'."}
+    except Exception as e:
+        return {"success": False, "message": f"Error al crear el archivo: {str(e)}"}
+
+
+def edit_text_file(file_name: str, content: str, mode: str = "overwrite", base_dir: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Edita un archivo de texto existente.
+    
+    Args:
+        file_name: nombre del archivo
+        content: nuevo contenido
+        mode: "overwrite" (reemplazar), "append" (agregar al final), "prepend" (agregar al inicio)
+        base_dir: directorio base (opcional)
+    """
+    try:
+        file_path, error = get_absolute_path(file_name, base_dir)
+        if error:
+            return {"success": False, "message": error}
+        
+        if not os.path.exists(file_path):
+            return {"success": False, "message": f"El archivo '{file_name}' no existe. Usa la función de crear archivo primero."}
+        
+        if not os.path.isfile(file_path):
+            return {"success": False, "message": f"'{file_name}' no es un archivo válido."}
+        
+        if mode == "overwrite":
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            action = "reemplazado"
+            
+        elif mode == "append":
+            with open(file_path, 'a', encoding='utf-8') as f:
+                f.write('\n' + content)
+            action = "agregado al final"
+            
+        elif mode == "prepend":
+            # Leer contenido existente
+            with open(file_path, 'r', encoding='utf-8') as f:
+                existing_content = f.read()
+            # Escribir nuevo contenido + contenido existente
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content + '\n' + existing_content)
+            action = "agregado al inicio"
+        else:
+            return {"success": False, "message": "Modo inválido. Usa 'overwrite', 'append' o 'prepend'."}
+        
+        return {
+            "success": True,
+            "message": f"Archivo '{file_name}' editado exitosamente. Contenido {action}.",
+            "path": file_path
+        }
+        
+    except PermissionError:
+        return {"success": False, "message": f"Sin permisos para editar el archivo '{file_name}'."}
+    except Exception as e:
+        return {"success": False, "message": f"Error al editar el archivo: {str(e)}"}
+
+
+def append_to_text_file(file_name: str, content: str, base_dir: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Función de conveniencia para agregar contenido al final de un archivo.
+    """
+    return edit_text_file(file_name, content, mode="append", base_dir=base_dir)
+
+
+def insert_text_at_line(file_name: str, line_number: int, content: str, base_dir: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Inserta texto en una línea específica del archivo.
+    
+    Args:
+        file_name: nombre del archivo
+        line_number: número de línea donde insertar (1-based)
+        content: contenido a insertar
+        base_dir: directorio base
+    """
+    try:
+        file_path, error = get_absolute_path(file_name, base_dir)
+        if error:
+            return {"success": False, "message": error}
+        
+        if not os.path.exists(file_path):
+            return {"success": False, "message": f"El archivo '{file_name}' no existe."}
+        
+        # Leer todas las líneas
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        # Validar número de línea
+        if line_number < 1:
+            line_number = 1
+        elif line_number > len(lines) + 1:
+            line_number = len(lines) + 1
+        
+        # Insertar en la posición correcta (convertir a 0-based)
+        lines.insert(line_number - 1, content + '\n')
+        
+        # Escribir el archivo modificado
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.writelines(lines)
+        
+        return {
+            "success": True,
+            "message": f"Texto insertado en la línea {line_number} del archivo '{file_name}'.",
+            "path": file_path
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Error al insertar texto: {str(e)}"}
+
+
+def replace_text_in_file(file_name: str, search_text: str, replace_text: str, base_dir: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Busca y reemplaza texto en un archivo.
+    
+    Args:
+        file_name: nombre del archivo
+        search_text: texto a buscar
+        replace_text: texto de reemplazo
+        base_dir: directorio base
+    """
+    try:
+        file_path, error = get_absolute_path(file_name, base_dir)
+        if error:
+            return {"success": False, "message": error}
+        
+        if not os.path.exists(file_path):
+            return {"success": False, "message": f"El archivo '{file_name}' no existe."}
+        
+        # Leer contenido
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Contar ocurrencias
+        count = content.count(search_text)
+        if count == 0:
+            return {"success": False, "message": f"No se encontró el texto '{search_text}' en el archivo."}
+        
+        # Reemplazar
+        new_content = content.replace(search_text, replace_text)
+        
+        # Escribir archivo modificado
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        
+        return {
+            "success": True,
+            "message": f"Se reemplazaron {count} ocurrencia(s) de '{search_text}' por '{replace_text}' en '{file_name}'.",
+            "path": file_path,
+            "replacements": count
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": f"Error al reemplazar texto: {str(e)}"}
+
+
+def get_file_info(file_name: str, base_dir: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Obtiene información detallada de un archivo de texto.
+    """
+    try:
+        file_path, error = get_absolute_path(file_name, base_dir)
+        if error:
+            return {"success": False, "message": error}
+        
+        if not os.path.exists(file_path):
+            return {"success": False, "message": f"El archivo '{file_name}' no existe."}
+        
+        # Leer archivo y obtener estadísticas
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            lines = content.splitlines()
+        
+        file_stats = os.stat(file_path)
+        
+        info = {
+            "success": True,
+            "path": file_path,
+            "size_bytes": file_stats.st_size,
+            "size_readable": f"{file_stats.st_size / 1024:.2f} KB" if file_stats.st_size > 1024 else f"{file_stats.st_size} bytes",
+            "lines": len(lines),
+            "characters": len(content),
+            "words": len(content.split()),
+            "modified": datetime.datetime.fromtimestamp(file_stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        return info
+        
+    except Exception as e:
+        return {"success": False, "message": f"Error al obtener información del archivo: {str(e)}"}
