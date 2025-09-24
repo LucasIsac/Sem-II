@@ -1,11 +1,11 @@
 module github.com/burakemir/mangle-service
 
-go 1.22
+go 1.23
 
 require (
 	github.com/google/mangle v0.1.0
 	google.golang.org/grpc v1.62.0
-	google.golang.org/protobuf v1.32.0
+	google.golang.org/protobuf v1.36.9
 )
 
 require (
