@@ -7,4 +7,3 @@ __pycache__/
 *.pyo
 .DS_Store
 files/  
-static/
