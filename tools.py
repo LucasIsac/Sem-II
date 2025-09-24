@@ -983,7 +983,7 @@ def convert_word_to_pdf(word_file, output_dir="files"):
         pdf_file = os.path.splitext(word_file)[0] + ".pdf"
         pdf_path = os.path.join(output_dir, pdf_file)
 
-        convert(word_path, pdf_path)
+        docx2pdf_convert(word_path, pdf_path)
         return f"El archivo '{word_file}' ha sido convertido a PDF exitosamente como '{pdf_file}'."
     except FileNotFoundError:
         return f"Error: No se encontró el archivo '{word_file}'."
