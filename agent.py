@@ -362,8 +362,8 @@ tools = [
     ),
     Tool(
         name="inicializar_base_conocimiento_completa",
-        func=lambda x: inicializar_base_conocimiento_completa(),
-        description="Inicializa completamente la base de conocimiento Mangle (reglas + contactos)."
+        func=lambda _: inicializar_base_conocimiento_completa(),
+        description="Inicializa completamente la base de conocimiento Mangle (reglas + contactos). No requiere parámetros."
     ),
     Tool(
         name="limpiar_base_de_conocimiento",
@@ -519,9 +519,10 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
         Observation: resultado de la herramienta
         Final Answer: tu respuesta final al usuario
 
-          Responde siempre en español de manera natural pero SIN formato especial
-
-        No escribas nada fuera de este formato. No uses listas, emojis ni explicaciones adicionales fuera de `Final Answer`.
+        ** REGLA CRÍTICA DE RESPUESTA: **
+        - Si la `Observation` ya contiene una respuesta completa y bien formateada (como un dashboard o un reporte), tu `Final Answer` DEBE contener ÚNICAMENTE el texto de la `Observation`, sin añadir frases como "Aquí tienes el dashboard..." ni ningún otro texto introductorio. Simplemente copia el resultado.
+        - Responde siempre en español de manera natural pero SIN formato especial (listas, emojis) a menos que la herramienta ya lo devuelva así.
+        - No escribas nada fuera del formato ReAct.
 
         **CONTEXTO ACTUAL:**
         - Directorio de trabajo actual: {current_working_directory}
