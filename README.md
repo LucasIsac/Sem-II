@@ -71,7 +71,6 @@ Para poner en marcha el proyecto, sigue estos pasos:
         ```
         GEMINI_API_KEY="tu_api_key_de_google_gemini"
         ELEVENLABS_API_KEY="tu_api_key_de_elevenlabs"
-        CLOUDCONVERT_API_KEY="tu_api_key_de_cloudconvert"
         ```
 
 ## ¿Cómo probar el proyecto?
