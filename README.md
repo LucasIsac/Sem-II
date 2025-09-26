@@ -113,7 +113,7 @@ El proyecto incluye un microservicio de alto rendimiento construido en Go que si
 
 3.  **Ejecuta el servidor:**
     ```bash
-    go run main.go --db=../example/knowledge_base.mgl --source=../example/demo.mg
+    go run server/main.go
     ```
 
 4.  El servidor se iniciará y comenzará a escuchar peticiones en el puerto `8080`. Déjalo corriendo en segundo plano mientras usas la aplicación principal.
