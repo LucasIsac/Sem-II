@@ -1,6 +1,6 @@
-# FileMate AI - Asistente de Archivos Inteligente
+# EVA Files - Asistente de Archivos Inteligente
 
-FileMate AI es un asistente inteligente que te permite manipular archivos y carpetas en tu sistema local mediante comandos de voz o texto. Utiliza la potencia del modelo de lenguaje Gemini de Google para interpretar tus intenciones y ejecutar acciones como renombrar archivos, convertir formatos y más.
+EVA Files es un asistente inteligente que te permite manipular archivos y carpetas en tu sistema local mediante comandos de voz o texto. Utiliza la potencia del modelo de lenguaje Gemini de Google para interpretar tus intenciones y ejecutar acciones como renombrar archivos, convertir formatos y más.
 
 ## Estructura del Proyecto
 
@@ -151,7 +151,7 @@ contacto_clave(Nombre) :-
 
 Una vez que los hechos y las reglas están en la base de conocimiento, el agente de IA puede realizar consultas para obtener información que no está explícitamente almacenada.
 
-Por ejemplo, si le preguntas a FileMate AI:
+Por ejemplo, si le preguntas a EVA Files:
 
 > "¿Quiénes son los contactos clave?"
 

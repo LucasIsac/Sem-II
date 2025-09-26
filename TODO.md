@@ -1,6 +1,6 @@
-# FileMate AI - Lista de Tareas y Mejoras
+# EVA Files - Lista de Tareas y Mejoras
 
-Este documento contiene una lista de sugerencias para mejorar y ampliar las capacidades del asistente FileMate AI.
+Este documento contiene una lista de sugerencias para mejorar y ampliar las capacidades del asistente EVA Files.
 
 ---
 

@@ -494,7 +494,7 @@ def initialize_llm():
 
 def process_command(command: str, chat_history: list = None, modo_voz: str = "Voz y texto"):
     """
-    Procesa un comando de lenguaje natural con FileMate AI manteniendo contexto de carpeta
+    Procesa un comando de lenguaje natural con EVA Files manteniendo contexto de carpeta
     """
     global current_working_directory
     
@@ -510,7 +510,7 @@ def process_command(command: str, chat_history: list = None, modo_voz: str = "Vo
                     memory.chat_memory.add_ai_message(message['content'])
 
         # Prompt del sistema unificado
-        system_prompt = f"""Eres FileMate AI, un asistente integral de gestión de archivos, sistema y proyectos. Tu función es interpretar las instrucciones del usuario y ejecutar las herramientas correspondientes.
+        system_prompt = f"""Eres EVA Files, un asistente integral de gestión de archivos, sistema y proyectos. Tu función es interpretar las instrucciones del usuario y ejecutar las herramientas correspondientes.
 
         ** IMPORTANTE: Cuando ejecutes herramientas debes seguir SIEMPRE este formato ReAct: **
         Thought: explica tu razonamiento

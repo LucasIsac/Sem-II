@@ -1,4 +1,4 @@
-# app.py - FileMate AI (versión con memoria de carpeta sincronizada)
+# app.py - EVA Files (versión con memoria de carpeta sincronizada)
 import streamlit as st
 import os
 import speech_recognition as sr
@@ -22,8 +22,8 @@ if 'voice_activated' not in st.session_state:
     st.session_state.voice_activated = False
 
 if not st.session_state.voice_activated:
-    st.set_page_config(page_title="FileMate AI - Activación", page_icon="🗂️", layout="centered")
-    st.title("🔊 Activar Voz - FileMate AI")
+    st.set_page_config(page_title="EVA Files - Activación", page_icon="🗂️", layout="centered")
+    st.title("🔊 Activar Voz - EVA Files")
     st.warning("Para usar el asistente con voz, debes activarla primero:")
     if st.button("🎤 ACTIVAR VOZ AUTOMÁTICA", use_container_width=True, type="primary"):
         st.session_state.voice_activated = True
@@ -32,8 +32,8 @@ if not st.session_state.voice_activated:
     st.stop()
 
 # ----------------- CONFIGURACIÓN DE PÁGINA -----------------
-st.set_page_config(page_title="FileMate AI - Chat", page_icon="🗂️", layout="centered")
-st.title("🗂️ FileMate AI - Asistente de Archivos")
+st.set_page_config(page_title="EVA Files - Chat", page_icon="🗂️", layout="centered")
+st.title("🗂️ EVA Files - Asistente de Archivos")
 
 # ----------------- SIDEBAR -----------------
 with st.sidebar:
@@ -143,7 +143,7 @@ if 'file_structure' not in st.session_state:
 
 # ----------------- PANTALLA INICIAL -----------------
 if not st.session_state.messages:
-    st.markdown("¡Hola! Soy FileMate, tu asistente de archivos personal con **memoria de contexto**. Ahora recuerdo en qué carpeta estamos trabajando entre comandos.")
+    st.markdown("¡Hola! Soy EVA Files, tu asistente de archivos personal con **memoria de contexto**. Ahora recuerdo en qué carpeta estamos trabajando entre comandos.")
     st.info("Para empezar, intenta preguntarme algo como:")
     col1, col2 = st.columns([1, 1])
     with col1:

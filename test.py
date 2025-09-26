@@ -1,4 +1,4 @@
-# app.py - FileMate AI completo
+# app.py - EVA Files completo
 import streamlit as st
 import os
 from agent import process_command
@@ -19,8 +19,8 @@ if 'voice_activated' not in st.session_state:
     st.session_state.voice_activated = False
 
 if not st.session_state.voice_activated:
-    st.set_page_config(page_title="FileMate AI - Activación", page_icon="🗂️", layout="centered")
-    st.title("🔊 Activar Voz - FileMate AI")
+    st.set_page_config(page_title="EVA Files - Activación", page_icon="🗂️", layout="centered")
+    st.title("🔊 Activar Voz - EVA Files")
     st.warning("Para usar el asistente con voz, debes activarla primero:")
     
     if st.button("🎤 ACTIVAR VOZ AUTOMÁTICA", use_container_width=True, type="primary"):
@@ -31,8 +31,8 @@ if not st.session_state.voice_activated:
     st.stop()
 
 # ----------------- CONFIGURACIÓN DE PÁGINA -----------------
-st.set_page_config(page_title="FileMate AI - Chat", page_icon="🗂️", layout="centered")
-st.title("🗂️ FileMate AI - Asistente de Archivos")
+st.set_page_config(page_title="EVA Files - Chat", page_icon="🗂️", layout="centered")
+st.title("🗂️ EVA Files - Asistente de Archivos")
 
 # ----------------- CONFIGURACIÓN DE VOZ (SIDEBAR) -----------------
 st.sidebar.header("🔊 Configuración de Voz")

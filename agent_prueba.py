@@ -24,7 +24,7 @@ def probar_flujo_completo_interactivo():
 
     # 2. Añadir un nuevo contacto al archivo, simulando la entrada del usuario.
     print("\nPaso 2: Añadiendo a 'Pepe' al archivo de contactos...")
-    print(f"Resultado: {agregar_contacto_a_archivo('Pepe', 'Tester', 'pepeejemplo@gamil.com', 'Proyecto de FileMateIa')}")
+    print(f"Resultado: {agregar_contacto_a_archivo('Pepe', 'Tester', 'pepeejemplo@gamil.com', 'Proyecto de EVA Files')}")
 
     # 3. Analizar el archivo de contactos actualizado y cargar la información a Mangle.
     print(f"\nPaso 3: Analizando '{ruta_contactos_txt}' y actualizando Mangle...")

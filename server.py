@@ -7,7 +7,7 @@ import uvicorn
 from tools import SystemManager
 import os
 
-app = FastAPI(title="FileMate AI Server")
+app = FastAPI(title="EVA Files Server")
 
 # Configurar CORS
 app.add_middleware(
