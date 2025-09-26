@@ -367,8 +367,8 @@ tools = [
     ),
     Tool(
         name="limpiar_base_de_conocimiento",
-        func=limpiar_base_de_conocimiento,
-        description="Limpia completamente la base de conocimiento. ¡CUIDADO! Operación irreversible."
+        func=lambda _: limpiar_base_de_conocimiento(),
+        description="Limpia completamente la base de conocimiento. No requiere parámetros. ¡CUIDADO! Operación irreversible."
     ),
     Tool(
         name="buscar_contactos_por_proyecto",
